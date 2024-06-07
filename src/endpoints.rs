@@ -1,14 +1,15 @@
 use crate::Config;
 use anyhow;
 use axum::extract::{Request, State};
+use axum::response::IntoResponse;
 use axum::Json;
 use openidconnect::core::{
-    CoreClaimName, CoreJwsSigningAlgorithm, CoreProviderMetadata, CoreResponseType,
-    CoreSubjectIdentifierType,
+    CoreClaimName, CoreJsonWebKey, CoreJsonWebKeySet, CoreJwsSigningAlgorithm,
+    CoreProviderMetadata, CoreResponseType, CoreRsaPrivateSigningKey, CoreSubjectIdentifierType,
 };
 use openidconnect::{
-    AuthUrl, EmptyAdditionalProviderMetadata, IssuerUrl, JsonWebKeySetUrl, ProviderMetadata,
-    ResponseTypes, Scope, TokenUrl, UserInfoUrl,
+    AuthUrl, EmptyAdditionalProviderMetadata, IssuerUrl, JsonWebKeySet, JsonWebKeySetUrl,
+    PrivateSigningKey, ProviderMetadata, ResponseTypes, Scope, TokenUrl, UserInfoUrl,
 };
 use std::ops::Deref;
 use url::Url;
@@ -80,4 +81,9 @@ fn generate_provider_metadata(baseurl: &Url) -> CoreProviderMetadata {
         CoreClaimName::new("locale".to_string()),
     ]));
     provider_metadata
+}
+
+pub async fn jwks(config: State<Config>) -> impl IntoResponse {
+    let key = config.json_web_key.as_verification_key();
+    Json(CoreJsonWebKeySet::new(vec![key]))
 }
