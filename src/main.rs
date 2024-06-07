@@ -7,6 +7,7 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use simple_oauth_server::create_app;
 
 #[tokio::main]
 async fn main() {
@@ -14,7 +15,7 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     // build our application with a route
-    let app = Router::new().route("/", get(root));
+    let app = create_app();
 
     // run our app with hyper
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
@@ -22,9 +23,4 @@ async fn main() {
         .unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
-}
-
-// basic handler that responds with a static string
-async fn root() -> &'static str {
-    "Hello, World!"
 }
