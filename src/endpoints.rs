@@ -8,11 +8,14 @@ use openidconnect::core::{
     CoreProviderMetadata, CoreResponseType, CoreRsaPrivateSigningKey, CoreSubjectIdentifierType,
 };
 use openidconnect::{
-    AuthUrl, EmptyAdditionalProviderMetadata, IssuerUrl, JsonWebKeySet, JsonWebKeySetUrl,
-    PrivateSigningKey, ProviderMetadata, ResponseTypes, Scope, TokenUrl, UserInfoUrl,
+    AuthUrl, AuthorizationRequest, EmptyAdditionalProviderMetadata, IssuerUrl, JsonWebKeySet,
+    JsonWebKeySetUrl, PrivateSigningKey, ProviderMetadata, ResponseTypes, Scope, TokenUrl,
+    UserInfoUrl,
 };
 use std::ops::Deref;
 use url::Url;
+
+pub mod authorize;
 
 pub async fn wellknown_endpoint(
     config: State<Config>,
