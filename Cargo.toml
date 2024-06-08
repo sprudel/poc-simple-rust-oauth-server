@@ -18,3 +18,5 @@ url = { version = "2.5.0", features = ["serde"] }
 anyhow = "1.0.86"
 ed25519-dalek = {version= "2.1.1", features = ["rand_core"]}
 rand = "0.8.5"
+base64 = "0.22.1"
+subtle = "2.5.0"

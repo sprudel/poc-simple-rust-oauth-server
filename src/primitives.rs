@@ -3,7 +3,7 @@ use rand::{thread_rng, Rng};
 use serde::Deserialize;
 use std::ops::Deref;
 
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Hash, PartialEq, Eq, Deserialize)]
 pub struct AuthCode(String);
 
 impl AuthCode {

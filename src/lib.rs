@@ -1,11 +1,12 @@
 use crate::endpoints::authorize::{get_authorize, post_authorize, ResponseType};
+use crate::endpoints::token::token;
 use crate::endpoints::{jwks, wellknown_endpoint};
 use crate::primitives::{
     AuthCode, ClientId, CodeChallengeMethod, CodeChallengeParam, NonceParam, StateParam,
 };
 use axum::extract::FromRef;
 use axum::http::Uri;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::Router;
 use ed25519_dalek::ed25519::signature::rand_core::OsRng;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
@@ -56,6 +57,7 @@ pub fn create_app() -> Router {
         .route("/.well-known/openid-configuration", get(wellknown_endpoint))
         .route("/jwk", get(jwks))
         .route("/authorize", get(get_authorize).post(post_authorize))
+        .route("/token", post(token))
         .with_state(app_state)
 }
 // basic handler that responds with a static string
