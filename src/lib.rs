@@ -92,4 +92,5 @@ struct AuthCodeState {
     nonce: Option<NonceParam>,
     code_challenge: Option<CodeChallengeParam>,
     code_challenge_method: CodeChallengeMethod,
+    redirect_uri: Url,
 }

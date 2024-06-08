@@ -106,6 +106,7 @@ async fn handle_auth_request(
 
     // TODO authorize{}
 
+    let orig_redirect_uri = redirect_uri.clone();
     let auth_code = AuthCode::new_random();
     redirect_uri
         .query_pairs_mut()
@@ -123,6 +124,7 @@ async fn handle_auth_request(
         nonce,
         code_challenge,
         code_challenge_method,
+        redirect_uri: orig_redirect_uri,
     };
     let mut guard = app_state.active_auth_code_flows.lock().await;
     guard.insert(auth_code, auth_code_state);
