@@ -1,5 +1,6 @@
 use crate::endpoints::authorize::{get_authorize, post_authorize};
 use crate::endpoints::{jwks, wellknown_endpoint};
+use crate::primitives::ClientId;
 use axum::http::Uri;
 use axum::routing::get;
 use axum::Router;
@@ -26,7 +27,7 @@ pub fn create_app() -> Router {
 
     let mut clients = HashMap::new();
     clients.insert(
-        "demo".to_string(),
+        ClientId::new("demo"),
         ClientConfig {
             secret: "test".into(),
             redirect_uri: "https://oidcdebugger.com/debug".parse().unwrap(),
@@ -67,7 +68,7 @@ impl Deref for Config {
 struct InnerConfig {
     issuer: Url,
     json_web_key: CoreEdDsaPrivateSigningKey,
-    clients: HashMap<String, ClientConfig>,
+    clients: HashMap<ClientId, ClientConfig>,
 }
 
 struct ClientConfig {

@@ -1,4 +1,6 @@
-use crate::primitives::AuthCode;
+use crate::primitives::{
+    AuthCode, ClientId, CodeChallengeMethod, CodeChallengeParam, NonceParam, StateParam,
+};
 use crate::{ClientConfig, Config};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
@@ -8,6 +10,7 @@ use openidconnect::http::Uri;
 use openidconnect::AuthorizationRequest;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
+use std::ops::Deref;
 use std::str::FromStr;
 use url::Url;
 
@@ -15,11 +18,11 @@ use url::Url;
 pub struct AuthorizeParameters {
     scope: String,
     response_type: ResponseType,
-    client_id: String,
+    client_id: ClientId,
     redirect_uri: Url,
-    state: Option<String>,
-    nonce: Option<String>,
-    code_challenge: Option<String>,
+    state: Option<StateParam>,
+    nonce: Option<NonceParam>,
+    code_challenge: Option<CodeChallengeParam>,
     #[serde(default)]
     code_challenge_method: CodeChallengeMethod,
 }
@@ -55,19 +58,6 @@ impl<'de> Deserialize<'de> for ResponseType {
             }
         }
         Ok(response_type)
-    }
-}
-
-#[derive(Deserialize)]
-enum CodeChallengeMethod {
-    #[serde(rename = "plain")]
-    Plain,
-    #[serde(rename = "S256")]
-    Sha256,
-}
-impl Default for CodeChallengeMethod {
-    fn default() -> Self {
-        CodeChallengeMethod::Plain
     }
 }
 
@@ -107,19 +97,21 @@ async fn handle_auth_request(
         return Err(AuthErr::InvalidRedirectUri(redirect_uri));
     }
     if let Some(state) = state {
-        redirect_uri.query_pairs_mut().append_pair("state", &state);
+        redirect_uri
+            .query_pairs_mut()
+            .append_pair("state", state.as_str());
     }
 
     let auth_code = AuthCode::new_random();
     redirect_uri
         .query_pairs_mut()
-        .append_pair("code", &auth_code);
+        .append_pair("code", auth_code.as_str());
 
     Ok(Redirect::to(redirect_uri.as_str()))
 }
 
 enum AuthErr {
-    InvalidClientId(String),
+    InvalidClientId(ClientId),
     InvalidRedirectUri(Url),
 }
 
@@ -128,7 +120,7 @@ impl IntoResponse for AuthErr {
         match self {
             AuthErr::InvalidClientId(client_id) => (
                 StatusCode::BAD_REQUEST,
-                format!("Invalid client id: {client_id}"),
+                format!("Invalid client id: {}", client_id.as_str()),
             )
                 .into_response(),
             AuthErr::InvalidRedirectUri(url) => (
