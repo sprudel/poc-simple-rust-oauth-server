@@ -1,7 +1,7 @@
 use crate::primitives::{
     AuthCode, ClientId, CodeChallengeMethod, CodeChallengeParam, NonceParam, StateParam,
 };
-use crate::{ClientConfig, Config};
+use crate::{ActiveAuthCodeFlows, AppState, AuthCodeState, ClientConfig, Config};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
@@ -12,6 +12,7 @@ use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use std::ops::Deref;
 use std::str::FromStr;
+use std::time::{Duration, Instant};
 use url::Url;
 
 #[derive(Deserialize)]
@@ -62,21 +63,21 @@ impl<'de> Deserialize<'de> for ResponseType {
 }
 
 pub async fn get_authorize(
-    State(config): State<Config>,
+    State(app_state): State<AppState>,
     Query(params): Query<AuthorizeParameters>,
 ) -> impl IntoResponse {
-    handle_auth_request(config, params).await
+    handle_auth_request(app_state, params).await
 }
 
 pub async fn post_authorize(
-    State(config): State<Config>,
+    State(app_state): State<AppState>,
     Form(params): Form<AuthorizeParameters>,
 ) -> impl IntoResponse {
-    handle_auth_request(config, params).await
+    handle_auth_request(app_state, params).await
 }
 
 async fn handle_auth_request(
-    config: Config,
+    app_state: AppState,
     params: AuthorizeParameters,
 ) -> Result<Redirect, AuthErr> {
     let AuthorizeParameters {
@@ -89,10 +90,11 @@ async fn handle_auth_request(
         code_challenge,
         code_challenge_method,
     } = params;
-    let client_config = config
+    let client_config = app_state
+        .config
         .clients
         .get(&client_id)
-        .ok_or(AuthErr::InvalidClientId(client_id))?;
+        .ok_or_else(|| AuthErr::InvalidClientId(client_id.clone()))?;
     if client_config.redirect_uri != redirect_uri || redirect_uri.cannot_be_a_base() {
         return Err(AuthErr::InvalidRedirectUri(redirect_uri));
     }
@@ -102,10 +104,28 @@ async fn handle_auth_request(
             .append_pair("state", state.as_str());
     }
 
+    // TODO authorize{}
+
     let auth_code = AuthCode::new_random();
     redirect_uri
         .query_pairs_mut()
         .append_pair("code", auth_code.as_str());
+
+    let code_expiry = Instant::now()
+        .checked_add(Duration::from_secs(60))
+        .ok_or(AuthErr::InternalServerError)?;
+
+    let auth_code_state = AuthCodeState {
+        expiry: code_expiry,
+        scope,
+        response_type,
+        client_id,
+        nonce,
+        code_challenge,
+        code_challenge_method,
+    };
+    let mut guard = app_state.active_auth_code_flows.lock().await;
+    guard.insert(auth_code, auth_code_state);
 
     Ok(Redirect::to(redirect_uri.as_str()))
 }
@@ -113,6 +133,7 @@ async fn handle_auth_request(
 enum AuthErr {
     InvalidClientId(ClientId),
     InvalidRedirectUri(Url),
+    InternalServerError,
 }
 
 impl IntoResponse for AuthErr {
@@ -128,6 +149,7 @@ impl IntoResponse for AuthErr {
                 format!("Invalid redirect_uri: {url}"),
             )
                 .into_response(),
+            AuthErr::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         }
     }
 }

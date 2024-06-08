@@ -3,7 +3,7 @@ use rand::{thread_rng, Rng};
 use serde::Deserialize;
 use std::ops::Deref;
 
-#[derive(Hash)]
+#[derive(Hash, PartialEq, Eq)]
 pub struct AuthCode(String);
 
 impl AuthCode {
@@ -23,12 +23,12 @@ pub struct StateParam(String);
 pub struct NonceParam(String);
 #[derive(Deserialize)]
 pub struct CodeChallengeParam(String);
-#[derive(Deserialize, Hash, PartialEq, Eq)]
+#[derive(Deserialize, Hash, PartialEq, Eq, Clone)]
 pub struct ClientId(String);
 
 impl ClientId {
     pub fn new<S: ToString>(id: S) -> Self {
-        ClientId::new(id.to_string())
+        ClientId(id.to_string())
     }
 }
 

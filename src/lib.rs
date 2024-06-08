@@ -1,6 +1,9 @@
-use crate::endpoints::authorize::{get_authorize, post_authorize};
+use crate::endpoints::authorize::{get_authorize, post_authorize, ResponseType};
 use crate::endpoints::{jwks, wellknown_endpoint};
-use crate::primitives::ClientId;
+use crate::primitives::{
+    AuthCode, ClientId, CodeChallengeMethod, CodeChallengeParam, NonceParam, StateParam,
+};
+use axum::extract::FromRef;
 use axum::http::Uri;
 use axum::routing::get;
 use axum::Router;
@@ -15,6 +18,7 @@ use openidconnect::JsonWebKeyId;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::Mutex;
 use url::Url;
 
@@ -33,39 +37,39 @@ pub fn create_app() -> Router {
             redirect_uri: "https://oidcdebugger.com/debug".parse().unwrap(),
         },
     );
-    let mut state = Config(Arc::new(InnerConfig {
-        issuer: Url::parse("http://localhost:3000").unwrap(),
-        json_web_key: CoreEdDsaPrivateSigningKey::from_ed25519_pem(
-            signing_key.to_pkcs8_pem(LineEnding::LF).unwrap().as_str(),
-            Some(JsonWebKeyId::new("default".into())),
-        )
-        .unwrap(),
-        clients,
-    }));
+
+    let app_state = AppState {
+        config: (Arc::new(Config {
+            issuer: Url::parse("http://localhost:3000").unwrap(),
+            json_web_key: CoreEdDsaPrivateSigningKey::from_ed25519_pem(
+                signing_key.to_pkcs8_pem(LineEnding::LF).unwrap().as_str(),
+                Some(JsonWebKeyId::new("default".into())),
+            )
+            .unwrap(),
+            clients,
+        })),
+        active_auth_code_flows: Arc::new(Default::default()),
+    };
 
     Router::new()
         .route("/", get(root))
         .route("/.well-known/openid-configuration", get(wellknown_endpoint))
         .route("/jwk", get(jwks))
         .route("/authorize", get(get_authorize).post(post_authorize))
-        .with_state(state)
+        .with_state(app_state)
 }
 // basic handler that responds with a static string
 async fn root() -> &'static str {
     "Hello, World!"
 }
 
-#[derive(Clone)]
-struct Config(Arc<InnerConfig>);
-
-impl Deref for Config {
-    type Target = InnerConfig;
-    fn deref(&self) -> &Self::Target {
-        self.0.deref()
-    }
+#[derive(Clone, FromRef)]
+struct AppState {
+    config: Arc<Config>,
+    active_auth_code_flows: Arc<ActiveAuthCodeFlows>,
 }
 
-struct InnerConfig {
+struct Config {
     issuer: Url,
     json_web_key: CoreEdDsaPrivateSigningKey,
     clients: HashMap<ClientId, ClientConfig>,
@@ -74,4 +78,16 @@ struct InnerConfig {
 struct ClientConfig {
     secret: String,
     redirect_uri: Url,
+}
+
+type ActiveAuthCodeFlows = Mutex<HashMap<AuthCode, AuthCodeState>>;
+
+struct AuthCodeState {
+    expiry: Instant,
+    scope: String,
+    response_type: ResponseType,
+    client_id: ClientId,
+    nonce: Option<NonceParam>,
+    code_challenge: Option<CodeChallengeParam>,
+    code_challenge_method: CodeChallengeMethod,
 }

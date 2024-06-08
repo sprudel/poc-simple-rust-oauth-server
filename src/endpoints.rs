@@ -13,14 +13,12 @@ use openidconnect::{
     UserInfoUrl,
 };
 use std::ops::Deref;
+use std::sync::Arc;
 use url::Url;
 
 pub mod authorize;
 
-pub async fn wellknown_endpoint(
-    config: State<Config>,
-    request: Request,
-) -> Json<CoreProviderMetadata> {
+pub async fn wellknown_endpoint(config: State<Arc<Config>>) -> Json<CoreProviderMetadata> {
     Json(generate_provider_metadata(&config.issuer))
 }
 
@@ -86,7 +84,7 @@ fn generate_provider_metadata(baseurl: &Url) -> CoreProviderMetadata {
     provider_metadata
 }
 
-pub async fn jwks(config: State<Config>) -> impl IntoResponse {
+pub async fn jwks(config: State<Arc<Config>>) -> impl IntoResponse {
     let key = config.json_web_key.as_verification_key();
     Json(CoreJsonWebKeySet::new(vec![key]))
 }
