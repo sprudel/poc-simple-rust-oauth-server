@@ -1,3 +1,4 @@
+use crate::primitives::AuthCode;
 use crate::{ClientConfig, Config};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
@@ -108,7 +109,11 @@ async fn handle_auth_request(
     if let Some(state) = state {
         redirect_uri.query_pairs_mut().append_pair("state", &state);
     }
-    redirect_uri.query_pairs_mut().append_pair("code", "TEST");
+
+    let auth_code = AuthCode::new_random();
+    redirect_uri
+        .query_pairs_mut()
+        .append_pair("code", &auth_code);
 
     Ok(Redirect::to(redirect_uri.as_str()))
 }

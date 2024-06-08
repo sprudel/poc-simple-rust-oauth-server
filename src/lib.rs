@@ -7,14 +7,18 @@ use ed25519_dalek::ed25519::signature::rand_core::OsRng;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::SigningKey;
+use openidconnect::core::CoreResponseType::Code;
 use openidconnect::core::{CoreEdDsaPrivateSigningKey, CoreJsonWebKey, CoreRsaPrivateSigningKey};
+use openidconnect::AuthenticationFlow::AuthorizationCode;
 use openidconnect::JsonWebKeyId;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use url::Url;
 
 mod endpoints;
+mod primitives;
 
 pub fn create_app() -> Router {
     let mut csprng = OsRng;
