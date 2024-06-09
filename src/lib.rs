@@ -1,7 +1,7 @@
-use crate::endpoints::authorize::{get_authorize, post_authorize, ResponseType};
+use crate::endpoints::authorize::{get_authorize, post_authorize};
 use crate::endpoints::token::token;
 use crate::endpoints::{jwks, wellknown_endpoint};
-use crate::primitives::{AuthCode, ClientId, CodeChallengeMethod, CodeChallengeParam, NonceParam};
+use crate::primitives::AuthCode;
 use axum::extract::FromRef;
 use axum::routing::{get, post};
 use axum::Router;
@@ -9,8 +9,8 @@ use ed25519_dalek::ed25519::signature::rand_core::OsRng;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::SigningKey;
-use openidconnect::core::CoreEdDsaPrivateSigningKey;
-use openidconnect::JsonWebKeyId;
+use openidconnect::core::{CoreEdDsaPrivateSigningKey, CoreResponseType};
+use openidconnect::{ClientId, JsonWebKeyId, Nonce, PkceCodeChallenge, ResponseTypes};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
@@ -26,7 +26,7 @@ pub fn create_app() -> Router {
 
     let mut clients = HashMap::new();
     clients.insert(
-        ClientId::new("demo"),
+        ClientId::new("demo".to_string()),
         ClientConfig {
             secret: "test".into(),
             redirect_uri: "https://oidcdebugger.com/debug".parse().unwrap(),
@@ -81,10 +81,9 @@ type ActiveAuthCodeFlows = Mutex<HashMap<AuthCode, AuthCodeState>>;
 struct AuthCodeState {
     expiry: Instant,
     scope: String,
-    response_type: ResponseType,
+    response_type: ResponseTypes<CoreResponseType>,
     client_id: ClientId,
-    nonce: Option<NonceParam>,
-    code_challenge: Option<CodeChallengeParam>,
-    code_challenge_method: CodeChallengeMethod,
+    nonce: Option<Nonce>,
+    pkce_code_challenge: Option<PkceCodeChallenge>,
     redirect_uri: Url,
 }

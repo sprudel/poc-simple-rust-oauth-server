@@ -16,30 +16,6 @@ impl AuthCode {
     }
 }
 
-#[derive(Deserialize)]
-pub struct StateParam(String);
-#[derive(Deserialize)]
-pub struct NonceParam(String);
-#[derive(Deserialize)]
-pub struct CodeChallengeParam(String);
-#[derive(Deserialize, Hash, PartialEq, Eq, Clone)]
-pub struct ClientId(String);
-
-impl ClientId {
-    pub fn new<S: ToString>(id: S) -> Self {
-        ClientId(id.to_string())
-    }
-}
-
-#[derive(Deserialize, Default)]
-pub enum CodeChallengeMethod {
-    #[serde(rename = "plain")]
-    #[default]
-    Plain,
-    #[serde(rename = "S256")]
-    Sha256,
-}
-
 macro_rules! as_str {
     ($name:ident) => {
         impl $name {
@@ -50,7 +26,3 @@ macro_rules! as_str {
     };
 }
 as_str!(AuthCode);
-as_str!(StateParam);
-as_str!(NonceParam);
-as_str!(CodeChallengeParam);
-as_str!(ClientId);

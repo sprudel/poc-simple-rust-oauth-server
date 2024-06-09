@@ -1,4 +1,4 @@
-use crate::primitives::{AuthCode, ClientId};
+use crate::primitives::AuthCode;
 use crate::AppState;
 use async_trait::async_trait;
 use axum::extract::{FromRef, FromRequestParts, State};
@@ -15,8 +15,8 @@ use openidconnect::core::{
     CoreTokenType,
 };
 use openidconnect::{
-    AccessToken, Audience, EmptyAdditionalClaims, EmptyExtraTokenFields, IssuerUrl,
-    JsonWebTokenError, Nonce, RefreshToken, StandardClaims, SubjectIdentifier,
+    AccessToken, Audience, ClientId, EmptyAdditionalClaims, EmptyExtraTokenFields, IssuerUrl,
+    JsonWebTokenError, RefreshToken, StandardClaims, SubjectIdentifier,
 };
 use serde::Deserialize;
 use std::time::Instant;
@@ -81,7 +81,7 @@ pub async fn token(
                     // however.
                     EmptyAdditionalClaims {},
                 )
-                .set_nonce(auth_state.nonce.map(|n| Nonce::new(n.as_str().to_string()))),
+                .set_nonce(auth_state.nonce),
                 // The private key used for signing the ID token. For confidential clients (those able
                 // to maintain a client secret), a CoreHmacKey can also be used, in conjunction
                 // with one of the CoreJwsSigningAlgorithm::HmacSha* signing algorithms. When using an
@@ -186,7 +186,7 @@ where
                 let decoded_str = String::from_utf8(decoded).map_err(|_| invalid_err())?;
                 let (client_id, client_secret) =
                     decoded_str.split_once(':').ok_or_else(invalid_err)?;
-                let client_id = ClientId::new(client_id);
+                let client_id = ClientId::new(client_id.to_string());
                 let app_state = AppState::from_ref(state);
                 map_authenticated_client(app_state, client_id, client_secret)
                     .ok_or((StatusCode::UNAUTHORIZED, "Invalid credentials"))

@@ -1,61 +1,26 @@
-use crate::primitives::{
-    AuthCode, ClientId, CodeChallengeMethod, CodeChallengeParam, NonceParam, StateParam,
-};
+use crate::primitives::AuthCode;
 use crate::{AppState, AuthCodeState};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::Form;
-use serde::de::Error;
-use serde::{Deserialize, Deserializer};
+use openidconnect::core::{CoreResponseMode, CoreResponseType};
+use openidconnect::{ClientId, CsrfToken, Nonce, PkceCodeChallenge, ResponseTypes};
+use serde::Deserialize;
 use std::time::{Duration, Instant};
 use url::Url;
 
 #[derive(Deserialize)]
 pub struct AuthorizeParameters {
     scope: String,
-    response_type: ResponseType,
+    response_type: ResponseTypes<CoreResponseType>,
     client_id: ClientId,
     redirect_uri: Url,
-    state: Option<StateParam>,
-    nonce: Option<NonceParam>,
-    code_challenge: Option<CodeChallengeParam>,
-    #[serde(default)]
-    code_challenge_method: CodeChallengeMethod,
-}
-
-pub struct ResponseType {
-    code: bool,
-    id_token: bool,
-    token: bool,
-}
-
-impl<'de> Deserialize<'de> for ResponseType {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s: &str = Deserialize::deserialize(deserializer)?;
-        let mut response_type = ResponseType {
-            code: false,
-            id_token: false,
-            token: false,
-        };
-        for single_response_type in s.split(' ') {
-            match single_response_type {
-                "code" => response_type.code = true,
-                "id_token" => response_type.id_token = true,
-                "token" => response_type.token = true,
-                other => {
-                    return Err(D::Error::custom(format!(
-                        "Invalid repsonse type '{}'",
-                        other
-                    )))
-                }
-            }
-        }
-        Ok(response_type)
-    }
+    state: Option<CsrfToken>,
+    nonce: Option<Nonce>,
+    #[serde(flatten)]
+    pkce_code_challenge: Option<PkceCodeChallenge>,
+    response_mode: Option<CoreResponseMode>,
 }
 
 pub async fn get_authorize(
@@ -83,8 +48,8 @@ async fn handle_auth_request(
         mut redirect_uri,
         state,
         nonce,
-        code_challenge,
-        code_challenge_method,
+        pkce_code_challenge,
+        response_mode,
     } = params;
     let client_config = app_state
         .config
@@ -98,7 +63,7 @@ async fn handle_auth_request(
     if let Some(state) = state {
         redirect_uri
             .query_pairs_mut()
-            .append_pair("state", state.as_str());
+            .append_pair("state", state.secret());
     }
 
     // TODO authorize{}
@@ -118,8 +83,7 @@ async fn handle_auth_request(
         response_type,
         client_id,
         nonce,
-        code_challenge,
-        code_challenge_method,
+        pkce_code_challenge,
         redirect_uri: orig_redirect_uri,
     };
     let mut guard = app_state.active_auth_code_flows.lock().await;
