@@ -2,22 +2,18 @@ use crate::endpoints::authorize::{get_authorize, post_authorize, ResponseType};
 use crate::endpoints::token::token;
 use crate::endpoints::{jwks, wellknown_endpoint};
 use crate::primitives::{
-    AuthCode, ClientId, CodeChallengeMethod, CodeChallengeParam, NonceParam, StateParam,
+    AuthCode, ClientId, CodeChallengeMethod, CodeChallengeParam, NonceParam,
 };
 use axum::extract::FromRef;
-use axum::http::Uri;
 use axum::routing::{get, post};
 use axum::Router;
 use ed25519_dalek::ed25519::signature::rand_core::OsRng;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::SigningKey;
-use openidconnect::core::CoreResponseType::Code;
-use openidconnect::core::{CoreEdDsaPrivateSigningKey, CoreJsonWebKey, CoreRsaPrivateSigningKey};
-use openidconnect::AuthenticationFlow::AuthorizationCode;
+use openidconnect::core::{CoreEdDsaPrivateSigningKey};
 use openidconnect::JsonWebKeyId;
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Mutex;

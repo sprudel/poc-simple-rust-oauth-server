@@ -1,12 +1,3 @@
-use axum::response::Response;
-use axum::{
-    async_trait,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::{get, post},
-    Json, Router,
-};
-use serde::{Deserialize, Serialize};
 use simple_oauth_server::create_app;
 
 #[tokio::main]

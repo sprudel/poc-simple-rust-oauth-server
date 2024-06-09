@@ -1,7 +1,6 @@
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde::Deserialize;
-use std::ops::Deref;
 
 #[derive(Hash, PartialEq, Eq, Deserialize)]
 pub struct AuthCode(String);
@@ -33,16 +32,13 @@ impl ClientId {
 }
 
 #[derive(Deserialize)]
+#[derive(Default)]
 pub enum CodeChallengeMethod {
     #[serde(rename = "plain")]
+    #[default]
     Plain,
     #[serde(rename = "S256")]
     Sha256,
-}
-impl Default for CodeChallengeMethod {
-    fn default() -> Self {
-        CodeChallengeMethod::Plain
-    }
 }
 
 macro_rules! as_str {

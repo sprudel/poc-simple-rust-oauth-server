@@ -1,17 +1,13 @@
 use crate::primitives::{
     AuthCode, ClientId, CodeChallengeMethod, CodeChallengeParam, NonceParam, StateParam,
 };
-use crate::{ActiveAuthCodeFlows, AppState, AuthCodeState, ClientConfig, Config};
+use crate::{AppState, AuthCodeState};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::Form;
-use openidconnect::http::Uri;
-use openidconnect::AuthorizationRequest;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
-use std::ops::Deref;
-use std::str::FromStr;
 use std::time::{Duration, Instant};
 use url::Url;
 
