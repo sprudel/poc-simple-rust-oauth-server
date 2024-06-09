@@ -98,6 +98,7 @@ async fn handle_auth_request(
     if client_config.redirect_uri != redirect_uri || redirect_uri.cannot_be_a_base() {
         return Err(AuthErr::InvalidRedirectUri(redirect_uri));
     }
+    let orig_redirect_uri = redirect_uri.clone();
     if let Some(state) = state {
         redirect_uri
             .query_pairs_mut()
@@ -106,7 +107,6 @@ async fn handle_auth_request(
 
     // TODO authorize{}
 
-    let orig_redirect_uri = redirect_uri.clone();
     let auth_code = AuthCode::new_random();
     redirect_uri
         .query_pairs_mut()
