@@ -1,9 +1,7 @@
 use crate::endpoints::authorize::{get_authorize, post_authorize, ResponseType};
 use crate::endpoints::token::token;
 use crate::endpoints::{jwks, wellknown_endpoint};
-use crate::primitives::{
-    AuthCode, ClientId, CodeChallengeMethod, CodeChallengeParam, NonceParam,
-};
+use crate::primitives::{AuthCode, ClientId, CodeChallengeMethod, CodeChallengeParam, NonceParam};
 use axum::extract::FromRef;
 use axum::routing::{get, post};
 use axum::Router;
@@ -11,7 +9,7 @@ use ed25519_dalek::ed25519::signature::rand_core::OsRng;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::SigningKey;
-use openidconnect::core::{CoreEdDsaPrivateSigningKey};
+use openidconnect::core::CoreEdDsaPrivateSigningKey;
 use openidconnect::JsonWebKeyId;
 use std::collections::HashMap;
 use std::sync::Arc;

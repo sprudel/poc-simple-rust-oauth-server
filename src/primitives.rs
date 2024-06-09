@@ -31,8 +31,7 @@ impl ClientId {
     }
 }
 
-#[derive(Deserialize)]
-#[derive(Default)]
+#[derive(Deserialize, Default)]
 pub enum CodeChallengeMethod {
     #[serde(rename = "plain")]
     #[default]

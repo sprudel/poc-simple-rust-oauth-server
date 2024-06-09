@@ -1,15 +1,14 @@
 use crate::Config;
-use axum::extract::{State};
+use axum::extract::State;
 use axum::response::IntoResponse;
 use axum::Json;
 use openidconnect::core::{
-    CoreClaimName, CoreJsonWebKeySet, CoreJwsSigningAlgorithm,
-    CoreProviderMetadata, CoreResponseType, CoreSubjectIdentifierType,
+    CoreClaimName, CoreJsonWebKeySet, CoreJwsSigningAlgorithm, CoreProviderMetadata,
+    CoreResponseType, CoreSubjectIdentifierType,
 };
 use openidconnect::{
-    AuthUrl, EmptyAdditionalProviderMetadata, IssuerUrl,
-    JsonWebKeySetUrl, PrivateSigningKey, ResponseTypes, Scope, TokenUrl,
-    UserInfoUrl,
+    AuthUrl, EmptyAdditionalProviderMetadata, IssuerUrl, JsonWebKeySetUrl, PrivateSigningKey,
+    ResponseTypes, Scope, TokenUrl, UserInfoUrl,
 };
 use std::sync::Arc;
 use url::Url;
@@ -28,7 +27,6 @@ fn generate_provider_metadata(baseurl: &Url) -> CoreProviderMetadata {
     let token_url = TokenUrl::from_url(baseurl.join("token").unwrap());
     let user_info_url = UserInfoUrl::from_url(baseurl.join("userinfo").unwrap());
 
-    
     CoreProviderMetadata::new(
         // Parameters required by the OpenID Connect Discovery spec.
         issuer,
