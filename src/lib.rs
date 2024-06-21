@@ -29,7 +29,7 @@ pub fn create_app() -> Router {
         ClientId::new("demo".to_string()),
         ClientConfig {
             secret: "test".into(),
-            redirect_uri: "https://oidcdebugger.com/debug".parse().unwrap(),
+            redirect_uris: vec!["https://oidcdebugger.com/debug".parse().unwrap()],
         },
     );
 
@@ -73,7 +73,7 @@ struct Config {
 
 struct ClientConfig {
     secret: String,
-    redirect_uri: Url,
+    redirect_uris: Vec<Url>,
 }
 
 type ActiveAuthCodeFlows = Mutex<HashMap<AuthCode, AuthCodeState>>;

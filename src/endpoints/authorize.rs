@@ -1,13 +1,18 @@
 use crate::primitives::AuthCode;
-use crate::{AppState, AuthCodeState};
+use crate::{AppState, AuthCodeState, ClientConfig};
+use async_trait::async_trait;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::Form;
 use openidconnect::core::{CoreResponseMode, CoreResponseType};
-use openidconnect::{ClientId, CsrfToken, Nonce, PkceCodeChallenge, ResponseTypes};
+use openidconnect::{
+    ClientId, ClientSecret, CsrfToken, Nonce, PkceCodeChallenge, RedirectUrl, ResponseTypes,
+};
 use serde::Deserialize;
+use std::marker::PhantomData;
 use std::time::{Duration, Instant};
+use subtle::ConstantTimeEq;
 use url::Url;
 
 #[derive(Deserialize)]
@@ -45,33 +50,21 @@ async fn handle_auth_request(
         scope,
         response_type,
         client_id,
-        mut redirect_uri,
+        redirect_uri,
         state,
         nonce,
         pkce_code_challenge,
         response_mode,
     } = params;
-    let client_config = app_state
-        .config
-        .clients
-        .get(&client_id)
-        .ok_or_else(|| AuthErr::InvalidClientId(client_id.clone()))?;
-    if client_config.redirect_uri != redirect_uri || redirect_uri.cannot_be_a_base() {
-        return Err(AuthErr::InvalidRedirectUri(redirect_uri));
-    }
-    let orig_redirect_uri = redirect_uri.clone();
-    if let Some(state) = state {
-        redirect_uri
-            .query_pairs_mut()
-            .append_pair("state", state.secret());
-    }
+
+    let valid_redirect_url = app_state
+        .validate_redirect(&client_id, redirect_uri)
+        .await?;
 
     // TODO authorize{}
 
     let auth_code = AuthCode::new_random();
-    redirect_uri
-        .query_pairs_mut()
-        .append_pair("code", auth_code.as_str());
+    let auth_code_redirect = valid_redirect_url.auth_code_redirect(&auth_code, state);
 
     let code_expiry = Instant::now()
         .checked_add(Duration::from_secs(60))
@@ -84,12 +77,13 @@ async fn handle_auth_request(
         client_id,
         nonce,
         pkce_code_challenge,
-        redirect_uri: orig_redirect_uri,
+        redirect_uri: valid_redirect_url.url(),
     };
+
     let mut guard = app_state.active_auth_code_flows.lock().await;
     guard.insert(auth_code, auth_code_state);
 
-    Ok(Redirect::to(redirect_uri.as_str()))
+    Ok(Redirect::to(auth_code_redirect.as_str()))
 }
 
 enum AuthErr {
@@ -113,5 +107,60 @@ impl IntoResponse for AuthErr {
                 .into_response(),
             AuthErr::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         }
+    }
+}
+
+#[async_trait]
+trait ClientValidation {
+    async fn client_config(&self, client_id: &ClientId) -> Option<&ClientConfig>;
+    async fn validate_redirect(
+        &self,
+        client_id: &ClientId,
+        redirect_url: Url,
+    ) -> Result<ValidRedirectUrl, AuthErr> {
+        let client_config = self
+            .client_config(client_id)
+            .await
+            .ok_or_else(|| AuthErr::InvalidClientId(client_id.clone()))?;
+        if client_config.redirect_uris.contains(&redirect_url) && !redirect_url.cannot_be_a_base() {
+            Ok(ValidRedirectUrl(redirect_url))
+        } else {
+            Err(AuthErr::InvalidRedirectUri(redirect_url))
+        }
+    }
+
+    async fn authenticate_client(&self, client_id: &ClientId, secret: &ClientSecret) -> bool {
+        match self.client_config(client_id).await {
+            None => false,
+            Some(ClientConfig { secret, .. }) => secret.as_bytes().ct_eq(secret.as_bytes()).into(),
+        }
+    }
+}
+
+#[async_trait]
+impl ClientValidation for AppState {
+    async fn client_config(&self, client_id: &ClientId) -> Option<&ClientConfig> {
+        self.config.clients.get(client_id)
+    }
+}
+
+struct ValidRedirectUrl(Url);
+
+impl ValidRedirectUrl {
+    fn auth_code_redirect(&self, code: &AuthCode, state: Option<CsrfToken>) -> Url {
+        let mut redirect_url = self.0.clone();
+        if let Some(state) = state {
+            redirect_url
+                .query_pairs_mut()
+                .append_pair("state", state.secret());
+        }
+        redirect_url
+            .query_pairs_mut()
+            .append_pair("code", code.as_str());
+        redirect_url
+    }
+
+    fn url(&self) -> Url {
+        self.0.clone()
     }
 }
