@@ -1,3 +1,4 @@
+use crate::endpoints::token::AuthenticatedClient;
 use crate::primitives::AuthCode;
 use crate::{AppState, AuthCodeState, ClientConfig};
 use async_trait::async_trait;
@@ -6,11 +7,8 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::Form;
 use openidconnect::core::{CoreResponseMode, CoreResponseType};
-use openidconnect::{
-    ClientId, ClientSecret, CsrfToken, Nonce, PkceCodeChallenge, RedirectUrl, ResponseTypes,
-};
+use openidconnect::{ClientId, CsrfToken, Nonce, PkceCodeChallenge, ResponseTypes};
 use serde::Deserialize;
-use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 use subtle::ConstantTimeEq;
 use url::Url;
@@ -86,10 +84,11 @@ async fn handle_auth_request(
     Ok(Redirect::to(auth_code_redirect.as_str()))
 }
 
-enum AuthErr {
+pub enum AuthErr {
     InvalidClientId(ClientId),
     InvalidRedirectUri(Url),
     InternalServerError,
+    FailedClientAuth,
 }
 
 impl IntoResponse for AuthErr {
@@ -106,12 +105,15 @@ impl IntoResponse for AuthErr {
             )
                 .into_response(),
             AuthErr::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            AuthErr::FailedClientAuth => {
+                (StatusCode::UNAUTHORIZED, "Invalid client").into_response()
+            }
         }
     }
 }
 
 #[async_trait]
-trait ClientValidation {
+pub trait ClientValidation {
     async fn client_config(&self, client_id: &ClientId) -> Option<&ClientConfig>;
     async fn validate_redirect(
         &self,
@@ -129,10 +131,20 @@ trait ClientValidation {
         }
     }
 
-    async fn authenticate_client(&self, client_id: &ClientId, secret: &ClientSecret) -> bool {
+    async fn authenticate_client(
+        &self,
+        client_id: &ClientId,
+        secret: &str,
+    ) -> Result<AuthenticatedClient, AuthErr> {
         match self.client_config(client_id).await {
-            None => false,
-            Some(ClientConfig { secret, .. }) => secret.as_bytes().ct_eq(secret.as_bytes()).into(),
+            Some(ClientConfig { secret, .. })
+                if secret.as_bytes().ct_eq(secret.as_bytes()).into() =>
+            {
+                Ok(AuthenticatedClient {
+                    client_id: client_id.clone(),
+                })
+            }
+            _ => Err(AuthErr::InternalServerError),
         }
     }
 }

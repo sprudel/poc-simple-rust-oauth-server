@@ -1,3 +1,4 @@
+use crate::endpoints::authorize::{AuthErr, ClientValidation};
 use crate::primitives::AuthCode;
 use crate::AppState;
 use async_trait::async_trait;
@@ -29,17 +30,14 @@ pub async fn token(
     authenticated_client: Option<AuthenticatedClient>,
     Form(auth_token_request): Form<OAuthTokenRequest>,
 ) -> Result<impl IntoResponse, TokenError> {
-    let client = authenticated_client
-        .or_else(|| {
-            auth_token_request.client_secret().and_then(|secret| {
-                map_authenticated_client(
-                    app_state.clone(),
-                    auth_token_request.client_id().clone(),
-                    secret,
-                )
-            })
-        })
-        .ok_or(TokenError::ClientUnAuthenticated)?;
+    let client = match (authenticated_client, auth_token_request.client_secret()) {
+        (Some(c), _) => c,
+        (None, Some(secret)) => app_state
+            .authenticate_client(auth_token_request.client_id(), secret)
+            .await
+            .map_err(|_| TokenError::ClientUnAuthenticated)?,
+        _ => Err(TokenError::ClientUnAuthenticated)?,
+    };
 
     match auth_token_request {
         OAuthTokenRequest::AuthorizationCode {
@@ -160,7 +158,7 @@ impl OAuthTokenRequest {
 }
 
 pub struct AuthenticatedClient {
-    client_id: ClientId,
+    pub client_id: ClientId,
 }
 
 #[async_trait]
@@ -169,29 +167,33 @@ where
     S: Send + Sync,
     AppState: FromRef<S>,
 {
-    type Rejection = (StatusCode, &'static str);
+    type Rejection = AuthErr;
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let invalid_err = || (StatusCode::UNAUTHORIZED, "Invalid authorization header");
         let header_split = parts
             .headers
             .get(AUTHORIZATION)
-            .ok_or_else(invalid_err)?
+            .ok_or(AuthErr::FailedClientAuth)?
             .to_str()
-            .map_err(|_| invalid_err())?
+            .map_err(|_| AuthErr::FailedClientAuth)?
             .split_once(' ')
-            .ok_or_else(invalid_err)?;
+            .ok_or(AuthErr::FailedClientAuth)?;
         match header_split {
             ("Basic", value) => {
-                let decoded = BASE64_STANDARD.decode(value).map_err(|_| invalid_err())?;
-                let decoded_str = String::from_utf8(decoded).map_err(|_| invalid_err())?;
-                let (client_id, client_secret) =
-                    decoded_str.split_once(':').ok_or_else(invalid_err)?;
+                let decoded = BASE64_STANDARD
+                    .decode(value)
+                    .map_err(|_| AuthErr::FailedClientAuth)?;
+                let decoded_str =
+                    String::from_utf8(decoded).map_err(|_| AuthErr::FailedClientAuth)?;
+                let (client_id, client_secret) = decoded_str
+                    .split_once(':')
+                    .ok_or(AuthErr::FailedClientAuth)?;
                 let client_id = ClientId::new(client_id.to_string());
                 let app_state = AppState::from_ref(state);
-                map_authenticated_client(app_state, client_id, client_secret)
-                    .ok_or((StatusCode::UNAUTHORIZED, "Invalid credentials"))
+                app_state
+                    .authenticate_client(&client_id, client_secret)
+                    .await
             }
-            _ => Err(invalid_err()),
+            _ => Err(AuthErr::FailedClientAuth),
         }
     }
 }
