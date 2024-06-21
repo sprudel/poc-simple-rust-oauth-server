@@ -1,4 +1,5 @@
-use crate::endpoints::authorize::{AuthErr, ClientValidation};
+use crate::endpoints::authorize::AuthErr;
+use crate::oauth::clients::{AuthenticatedClient, ClientValidation};
 use crate::primitives::AuthCode;
 use crate::AppState;
 use async_trait::async_trait;
@@ -51,8 +52,7 @@ pub async fn token(
                 .remove(&code)
                 .filter(|auth_state| auth_state.expiry > Instant::now())
                 .filter(|auth_state| {
-                    auth_state.client_id == client.client_id
-                        && auth_state.client_id == client_id
+                    auth_state.client_id == *client.client_id()
                         && auth_state.redirect_uri == redirect_uri
                 })
                 .ok_or(TokenError::AuthFlowNotFound)?;
@@ -157,10 +157,6 @@ impl OAuthTokenRequest {
     }
 }
 
-pub struct AuthenticatedClient {
-    pub client_id: ClientId,
-}
-
 #[async_trait]
 impl<S> FromRequestParts<S> for AuthenticatedClient
 where
@@ -195,24 +191,6 @@ where
             }
             _ => Err(AuthErr::FailedClientAuth),
         }
-    }
-}
-
-fn map_authenticated_client(
-    state: AppState,
-    client_id: ClientId,
-    client_secret: &str,
-) -> Option<AuthenticatedClient> {
-    let is_authenticated_client = state
-        .config
-        .clients
-        .get(&client_id)
-        .map(|c| c.secret.as_bytes().ct_eq(client_secret.as_bytes()).into())
-        .unwrap_or(false);
-    if is_authenticated_client {
-        Some(AuthenticatedClient { client_id })
-    } else {
-        None
     }
 }
 

@@ -18,6 +18,7 @@ use tokio::sync::Mutex;
 use url::Url;
 
 mod endpoints;
+mod oauth;
 mod primitives;
 
 pub fn create_app() -> Router {
