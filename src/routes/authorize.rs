@@ -20,25 +20,39 @@ use tower_cookies::{Cookie, Cookies, PrivateCookies};
 
 pub async fn get_authorize(
     State(app_state): State<AppState>,
-    cookies: Cookies,
+    auth_cookie: AuthCookie,
     Query(params): Query<AuthorizeParameters>,
 ) -> impl IntoResponse {
-    handle_auth_request(app_state, cookies, params).await
+    handle_auth_request(app_state, auth_cookie, params).await
 }
 
 pub async fn post_authorize(
     State(app_state): State<AppState>,
-    cookies: Cookies,
+    auth_cookie: AuthCookie,
     Form(params): Form<AuthorizeParameters>,
 ) -> impl IntoResponse {
-    handle_auth_request(app_state, cookies, params).await
+    handle_auth_request(app_state, auth_cookie, params).await
 }
 
 async fn handle_auth_request(
     app_state: AppState,
-    cookies: Cookies,
+    auth_cookie: AuthCookie,
     params: AuthorizeParameters,
 ) -> Result<Redirect, AuthErr> {
+    let valid_redirect_url = app_state
+        .validate_redirect(&params.client_id, &params.redirect_uri)
+        .await?;
+
+    // TODO check user is authenticated and has access to client
+    let authenticated_user = match auth_cookie.state {
+        AuthCookieState::UnAuthenticated => return Ok(Redirect::to("/login")),
+        AuthCookieState::PendingAuthForAuthRequest(_) => {
+            auth_cookie.set_state(AuthCookieState::UnAuthenticated);
+            return Err(AuthErr::InvalidFlowState);
+        }
+        AuthCookieState::Authenticated(user_id) => user_id,
+    };
+
     let AuthorizeParameters {
         scope,
         response_type,
@@ -49,12 +63,6 @@ async fn handle_auth_request(
         pkce_code_challenge,
         response_mode,
     } = params;
-
-    let valid_redirect_url = app_state
-        .validate_redirect(&client_id, redirect_uri)
-        .await?;
-
-    // TODO authorize{}
 
     let auth_code = AuthCode::new_random();
     let auth_code_redirect = valid_redirect_url.auth_code_redirect(&auth_code, state);
@@ -82,6 +90,7 @@ async fn handle_auth_request(
 #[derive(Serialize, Deserialize)]
 pub enum AuthCookieState {
     UnAuthenticated,
+    PendingAuthForAuthRequest(AuthorizeParameters),
     Authenticated(UserId),
 }
 

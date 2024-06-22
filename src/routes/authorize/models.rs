@@ -1,9 +1,9 @@
 use openidconnect::core::{CoreResponseMode, CoreResponseType};
 use openidconnect::{ClientId, CsrfToken, Nonce, PkceCodeChallenge, ResponseTypes};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use url::Url;
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct AuthorizeParameters {
     pub scope: String,
     pub response_type: ResponseTypes<CoreResponseType>,

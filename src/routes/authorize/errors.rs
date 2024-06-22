@@ -9,6 +9,7 @@ pub enum AuthErr {
     InvalidRedirectUri(Url),
     InternalServerError,
     FailedClientAuth,
+    InvalidFlowState,
 }
 
 impl From<ClientValidationError> for AuthErr {
@@ -37,6 +38,9 @@ impl IntoResponse for AuthErr {
             AuthErr::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
             AuthErr::FailedClientAuth => {
                 (StatusCode::UNAUTHORIZED, "Invalid client").into_response()
+            }
+            AuthErr::InvalidFlowState => {
+                (StatusCode::UNAUTHORIZED, "Invalid state").into_response()
             }
         }
     }

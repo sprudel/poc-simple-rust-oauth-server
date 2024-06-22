@@ -10,16 +10,16 @@ pub trait ClientValidation {
     async fn validate_redirect(
         &self,
         client_id: &ClientId,
-        redirect_url: Url,
+        redirect_url: &Url,
     ) -> Result<ValidRedirectUrl, ClientValidationError> {
         let client_config = self
             .client_config(client_id)
             .await
             .ok_or_else(|| ClientValidationError::InvalidClient(client_id.clone()))?;
-        if client_config.redirect_uris.contains(&redirect_url) && !redirect_url.cannot_be_a_base() {
-            Ok(ValidRedirectUrl(redirect_url))
+        if client_config.redirect_uris.contains(redirect_url) && !redirect_url.cannot_be_a_base() {
+            Ok(ValidRedirectUrl(redirect_url.clone()))
         } else {
-            Err(ClientValidationError::InvalidRedirect(redirect_url))
+            Err(ClientValidationError::InvalidRedirect(redirect_url.clone()))
         }
     }
 
