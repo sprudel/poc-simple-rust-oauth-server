@@ -11,6 +11,7 @@ use openidconnect::core::CoreEdDsaPrivateSigningKey;
 use openidconnect::{ClientId, JsonWebKeyId};
 use std::collections::HashMap;
 use std::sync::Arc;
+use tower_cookies::{CookieManagerLayer, Key};
 use url::Url;
 
 mod app_state;
@@ -20,7 +21,6 @@ mod routes;
 use crate::app_state::AppState;
 use crate::app_state::Config;
 use crate::oauth::clients::ClientConfig;
-
 pub fn create_app() -> Router {
     let mut csprng = OsRng;
     let signing_key: SigningKey = SigningKey::generate(&mut csprng);
@@ -36,6 +36,7 @@ pub fn create_app() -> Router {
 
     let app_state = AppState {
         config: (Arc::new(Config {
+            cookie_secret: Key::generate(),
             issuer: Url::parse("http://localhost:3000").unwrap(),
             json_web_key: CoreEdDsaPrivateSigningKey::from_ed25519_pem(
                 signing_key.to_pkcs8_pem(LineEnding::LF).unwrap().as_str(),
@@ -53,6 +54,7 @@ pub fn create_app() -> Router {
         .route("/jwk", get(jwks))
         .route("/authorize", get(get_authorize).post(post_authorize))
         .route("/token", post(token))
+        .layer(CookieManagerLayer::new())
         .with_state(app_state)
 }
 // basic handler that responds with a static string

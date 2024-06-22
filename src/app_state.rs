@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Mutex;
+use tower_cookies::Key;
 use url::Url;
 
 #[derive(Clone, FromRef)]
@@ -17,6 +18,7 @@ pub struct AppState {
 }
 
 pub struct Config {
+    pub cookie_secret: Key,
     pub issuer: Url,
     pub json_web_key: CoreEdDsaPrivateSigningKey,
     pub clients: HashMap<ClientId, ClientConfig>,
