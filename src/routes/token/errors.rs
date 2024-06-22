@@ -8,6 +8,7 @@ pub enum TokenError {
     AuthFlowNotFound,
     FlowNotSupported,
     JsonWebTokenError(JsonWebTokenError),
+    BadRequest,
 }
 
 impl From<ClientValidationError> for TokenError {
@@ -30,6 +31,9 @@ impl IntoResponse for TokenError {
                 (StatusCode::BAD_REQUEST, "Flow not supported").into_response()
             }
             TokenError::JsonWebTokenError(_) => (StatusCode::INTERNAL_SERVER_ERROR).into_response(),
+            TokenError::BadRequest => {
+                (StatusCode::BAD_REQUEST, "Invalid request body").into_response()
+            }
         }
     }
 }

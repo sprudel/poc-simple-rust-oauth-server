@@ -75,7 +75,7 @@ impl ValidRedirectUrl {
 }
 
 pub struct AuthenticatedClient {
-    client_id: ClientId,
+    pub client_id: ClientId,
 }
 
 impl AuthenticatedClient {

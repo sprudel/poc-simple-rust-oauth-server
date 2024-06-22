@@ -1,17 +1,12 @@
 mod errors;
 mod models;
 
-use crate::oauth::clients::{AuthenticatedClient, ClientValidation};
 use crate::routes::token::errors::TokenError;
-use crate::routes::token::models::OAuthTokenRequest;
+use crate::routes::token::models::{ValidatedClient, ValidatedOauthTokenRequest};
 use crate::AppState;
-use async_trait::async_trait;
-use axum::extract::{FromRef, FromRequestParts, State};
-use axum::http::header::AUTHORIZATION;
-use axum::http::request::Parts;
+use axum::extract::State;
 use axum::response::IntoResponse;
-use axum::{debug_handler, Form, Json};
-use base64::prelude::BASE64_STANDARD;
+use axum::{debug_handler, Json};
 use base64::Engine;
 use chrono::{Duration, Utc};
 use openidconnect::core::{
@@ -19,40 +14,29 @@ use openidconnect::core::{
     CoreTokenType,
 };
 use openidconnect::{
-    AccessToken, Audience, ClientId, EmptyAdditionalClaims, EmptyExtraTokenFields, IssuerUrl,
-    RefreshToken, StandardClaims, SubjectIdentifier,
+    AccessToken, Audience, EmptyAdditionalClaims, EmptyExtraTokenFields, IssuerUrl, RefreshToken,
+    StandardClaims, SubjectIdentifier,
 };
 use std::time::Instant;
 
 #[debug_handler]
 pub async fn token(
     State(app_state): State<AppState>,
-    authenticated_client: Option<AuthenticatedClient>,
-    Form(auth_token_request): Form<OAuthTokenRequest>,
+    auth_token_request: ValidatedOauthTokenRequest,
 ) -> Result<impl IntoResponse, TokenError> {
-    let client = match (authenticated_client, auth_token_request.client_secret()) {
-        (Some(c), _) => c,
-        (None, Some(secret)) => app_state
-            .authenticate_client(auth_token_request.client_id(), secret)
-            .await
-            .map_err(|_| TokenError::ClientUnAuthenticated)?,
-        _ => Err(TokenError::ClientUnAuthenticated)?,
-    };
-
     match auth_token_request {
-        OAuthTokenRequest::AuthorizationCode {
+        ValidatedOauthTokenRequest::AuthorizationCode {
             code,
             redirect_uri,
-            client_id,
-            ..
+            client,
         } => {
+            let ValidatedClient::AuthenticatedConfidentialClient(client_id) = client;
             let mut guard = app_state.active_auth_code_flows.lock().await;
             let auth_state = guard
                 .remove(&code)
                 .filter(|auth_state| auth_state.expiry > Instant::now())
                 .filter(|auth_state| {
-                    auth_state.client_id == *client.client_id()
-                        && auth_state.redirect_uri == redirect_uri
+                    auth_state.client_id == client_id && auth_state.redirect_uri == redirect_uri
                 })
                 .ok_or(TokenError::AuthFlowNotFound)?;
             let key = &app_state.config.json_web_key;
@@ -108,43 +92,5 @@ pub async fn token(
             Ok(Json(token_response))
         }
         _ => Err(TokenError::FlowNotSupported),
-    }
-}
-
-#[async_trait]
-impl<S> FromRequestParts<S> for AuthenticatedClient
-where
-    S: Send + Sync,
-    AppState: FromRef<S>,
-{
-    type Rejection = TokenError;
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let header_split = parts
-            .headers
-            .get(AUTHORIZATION)
-            .ok_or(TokenError::ClientUnAuthenticated)?
-            .to_str()
-            .map_err(|_| TokenError::ClientUnAuthenticated)?
-            .split_once(' ')
-            .ok_or(TokenError::ClientUnAuthenticated)?;
-        match header_split {
-            ("Basic", value) => {
-                let decoded = BASE64_STANDARD
-                    .decode(value)
-                    .map_err(|_| TokenError::ClientUnAuthenticated)?;
-                let decoded_str =
-                    String::from_utf8(decoded).map_err(|_| TokenError::ClientUnAuthenticated)?;
-                let (client_id, client_secret) = decoded_str
-                    .split_once(':')
-                    .ok_or(TokenError::ClientUnAuthenticated)?;
-                let client_id = ClientId::new(client_id.to_string());
-                let app_state = AppState::from_ref(state);
-                app_state
-                    .authenticate_client(&client_id, client_secret)
-                    .await
-                    .map_err(TokenError::from)
-            }
-            _ => Err(TokenError::ClientUnAuthenticated),
-        }
     }
 }
