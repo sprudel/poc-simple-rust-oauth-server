@@ -1,6 +1,5 @@
-use crate::oauth::clients::{AuthenticatedClient, ClientValidation};
+use crate::oauth::clients::{AuthenticatedClient, ClientValidation, ClientValidationError};
 use crate::oauth::primitives::AuthCode;
-use crate::routes::authorize::AuthErr;
 use crate::AppState;
 use async_trait::async_trait;
 use axum::extract::{FromRef, FromRequestParts, State};
@@ -162,33 +161,34 @@ where
     S: Send + Sync,
     AppState: FromRef<S>,
 {
-    type Rejection = AuthErr;
+    type Rejection = TokenError;
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let header_split = parts
             .headers
             .get(AUTHORIZATION)
-            .ok_or(AuthErr::FailedClientAuth)?
+            .ok_or(TokenError::ClientUnAuthenticated)?
             .to_str()
-            .map_err(|_| AuthErr::FailedClientAuth)?
+            .map_err(|_| TokenError::ClientUnAuthenticated)?
             .split_once(' ')
-            .ok_or(AuthErr::FailedClientAuth)?;
+            .ok_or(TokenError::ClientUnAuthenticated)?;
         match header_split {
             ("Basic", value) => {
                 let decoded = BASE64_STANDARD
                     .decode(value)
-                    .map_err(|_| AuthErr::FailedClientAuth)?;
+                    .map_err(|_| TokenError::ClientUnAuthenticated)?;
                 let decoded_str =
-                    String::from_utf8(decoded).map_err(|_| AuthErr::FailedClientAuth)?;
+                    String::from_utf8(decoded).map_err(|_| TokenError::ClientUnAuthenticated)?;
                 let (client_id, client_secret) = decoded_str
                     .split_once(':')
-                    .ok_or(AuthErr::FailedClientAuth)?;
+                    .ok_or(TokenError::ClientUnAuthenticated)?;
                 let client_id = ClientId::new(client_id.to_string());
                 let app_state = AppState::from_ref(state);
                 app_state
                     .authenticate_client(&client_id, client_secret)
                     .await
+                    .map_err(TokenError::from)
             }
-            _ => Err(AuthErr::FailedClientAuth),
+            _ => Err(TokenError::ClientUnAuthenticated),
         }
     }
 }
@@ -198,6 +198,13 @@ pub enum TokenError {
     AuthFlowNotFound,
     FlowNotSupported,
     JsonWebTokenError(JsonWebTokenError),
+}
+
+impl From<ClientValidationError> for TokenError {
+    fn from(_err: ClientValidationError) -> Self {
+        // TODO log original error
+        TokenError::ClientUnAuthenticated
+    }
 }
 
 impl IntoResponse for TokenError {

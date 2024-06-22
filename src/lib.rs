@@ -7,7 +7,7 @@ use ed25519_dalek::ed25519::signature::rand_core::OsRng;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::SigningKey;
-use openidconnect::core::{CoreEdDsaPrivateSigningKey};
+use openidconnect::core::CoreEdDsaPrivateSigningKey;
 use openidconnect::{ClientId, JsonWebKeyId};
 use std::collections::HashMap;
 use std::sync::Arc;

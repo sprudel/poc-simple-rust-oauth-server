@@ -1,5 +1,5 @@
 use crate::app_state::AuthCodeState;
-use crate::oauth::clients::ClientValidation;
+use crate::oauth::clients::{ClientValidation, ClientValidationError};
 use crate::oauth::primitives::AuthCode;
 use crate::AppState;
 use axum::extract::{Query, State};
@@ -83,11 +83,21 @@ async fn handle_auth_request(
     Ok(Redirect::to(auth_code_redirect.as_str()))
 }
 
-pub enum AuthErr {
+enum AuthErr {
     InvalidClientId(ClientId),
     InvalidRedirectUri(Url),
     InternalServerError,
     FailedClientAuth,
+}
+
+impl From<ClientValidationError> for AuthErr {
+    fn from(err: ClientValidationError) -> Self {
+        match err {
+            ClientValidationError::InvalidClient(id) => AuthErr::InvalidClientId(id),
+            ClientValidationError::InvalidClientAuth => AuthErr::FailedClientAuth,
+            ClientValidationError::InvalidRedirect(url) => AuthErr::InvalidRedirectUri(url),
+        }
+    }
 }
 
 impl IntoResponse for AuthErr {

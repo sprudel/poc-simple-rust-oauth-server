@@ -1,5 +1,4 @@
 use crate::oauth::primitives::AuthCode;
-use crate::routes::authorize::AuthErr;
 use async_trait::async_trait;
 use openidconnect::{ClientId, CsrfToken};
 use subtle::ConstantTimeEq;
@@ -12,15 +11,15 @@ pub trait ClientValidation {
         &self,
         client_id: &ClientId,
         redirect_url: Url,
-    ) -> Result<ValidRedirectUrl, AuthErr> {
+    ) -> Result<ValidRedirectUrl, ClientValidationError> {
         let client_config = self
             .client_config(client_id)
             .await
-            .ok_or_else(|| AuthErr::InvalidClientId(client_id.clone()))?;
+            .ok_or_else(|| ClientValidationError::InvalidClient(client_id.clone()))?;
         if client_config.redirect_uris.contains(&redirect_url) && !redirect_url.cannot_be_a_base() {
             Ok(ValidRedirectUrl(redirect_url))
         } else {
-            Err(AuthErr::InvalidRedirectUri(redirect_url))
+            Err(ClientValidationError::InvalidRedirect(redirect_url))
         }
     }
 
@@ -28,7 +27,7 @@ pub trait ClientValidation {
         &self,
         client_id: &ClientId,
         secret: &str,
-    ) -> Result<AuthenticatedClient, AuthErr> {
+    ) -> Result<AuthenticatedClient, ClientValidationError> {
         match self.client_config(client_id).await {
             Some(ClientConfig { secret, .. })
                 if secret.as_bytes().ct_eq(secret.as_bytes()).into() =>
@@ -37,9 +36,16 @@ pub trait ClientValidation {
                     client_id: client_id.clone(),
                 })
             }
-            _ => Err(AuthErr::InternalServerError),
+            Some(_) => Err(ClientValidationError::InvalidClientAuth),
+            _ => Err(ClientValidationError::InvalidClient(client_id.clone())),
         }
     }
+}
+
+pub enum ClientValidationError {
+    InvalidClient(ClientId),
+    InvalidClientAuth,
+    InvalidRedirect(Url),
 }
 
 pub struct ClientConfig {
