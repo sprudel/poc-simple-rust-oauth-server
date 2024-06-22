@@ -1,29 +1,16 @@
+mod errors;
+mod models;
+
 use crate::app_state::AuthCodeState;
-use crate::oauth::clients::{ClientValidation, ClientValidationError};
+use crate::oauth::clients::ClientValidation;
 use crate::oauth::primitives::AuthCode;
+use crate::routes::authorize::errors::AuthErr;
+use crate::routes::authorize::models::AuthorizeParameters;
 use crate::AppState;
 use axum::extract::{Query, State};
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Redirect, Response};
+use axum::response::{IntoResponse, Redirect};
 use axum::Form;
-use openidconnect::core::{CoreResponseMode, CoreResponseType};
-use openidconnect::{ClientId, CsrfToken, Nonce, PkceCodeChallenge, ResponseTypes};
-use serde::Deserialize;
 use std::time::{Duration, Instant};
-use url::Url;
-
-#[derive(Deserialize)]
-pub struct AuthorizeParameters {
-    scope: String,
-    response_type: ResponseTypes<CoreResponseType>,
-    client_id: ClientId,
-    redirect_uri: Url,
-    state: Option<CsrfToken>,
-    nonce: Option<Nonce>,
-    #[serde(flatten)]
-    pkce_code_challenge: Option<PkceCodeChallenge>,
-    response_mode: Option<CoreResponseMode>,
-}
 
 pub async fn get_authorize(
     State(app_state): State<AppState>,
@@ -81,42 +68,4 @@ async fn handle_auth_request(
     guard.insert(auth_code, auth_code_state);
 
     Ok(Redirect::to(auth_code_redirect.as_str()))
-}
-
-enum AuthErr {
-    InvalidClientId(ClientId),
-    InvalidRedirectUri(Url),
-    InternalServerError,
-    FailedClientAuth,
-}
-
-impl From<ClientValidationError> for AuthErr {
-    fn from(err: ClientValidationError) -> Self {
-        match err {
-            ClientValidationError::InvalidClient(id) => AuthErr::InvalidClientId(id),
-            ClientValidationError::InvalidClientAuth => AuthErr::FailedClientAuth,
-            ClientValidationError::InvalidRedirect(url) => AuthErr::InvalidRedirectUri(url),
-        }
-    }
-}
-
-impl IntoResponse for AuthErr {
-    fn into_response(self) -> Response {
-        match self {
-            AuthErr::InvalidClientId(client_id) => (
-                StatusCode::BAD_REQUEST,
-                format!("Invalid client id: {}", client_id.as_str()),
-            )
-                .into_response(),
-            AuthErr::InvalidRedirectUri(url) => (
-                StatusCode::BAD_REQUEST,
-                format!("Invalid redirect_uri: {url}"),
-            )
-                .into_response(),
-            AuthErr::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-            AuthErr::FailedClientAuth => {
-                (StatusCode::UNAUTHORIZED, "Invalid client").into_response()
-            }
-        }
-    }
 }

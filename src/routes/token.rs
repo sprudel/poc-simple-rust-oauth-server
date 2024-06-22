@@ -1,12 +1,15 @@
-use crate::oauth::clients::{AuthenticatedClient, ClientValidation, ClientValidationError};
-use crate::oauth::primitives::AuthCode;
+mod errors;
+mod models;
+
+use crate::oauth::clients::{AuthenticatedClient, ClientValidation};
+use crate::routes::token::errors::TokenError;
+use crate::routes::token::models::OAuthTokenRequest;
 use crate::AppState;
 use async_trait::async_trait;
 use axum::extract::{FromRef, FromRequestParts, State};
 use axum::http::header::AUTHORIZATION;
 use axum::http::request::Parts;
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
+use axum::response::IntoResponse;
 use axum::{debug_handler, Form, Json};
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
@@ -17,11 +20,9 @@ use openidconnect::core::{
 };
 use openidconnect::{
     AccessToken, Audience, ClientId, EmptyAdditionalClaims, EmptyExtraTokenFields, IssuerUrl,
-    JsonWebTokenError, RefreshToken, StandardClaims, SubjectIdentifier,
+    RefreshToken, StandardClaims, SubjectIdentifier,
 };
-use serde::Deserialize;
 use std::time::Instant;
-use url::Url;
 
 #[debug_handler]
 pub async fn token(
@@ -110,51 +111,6 @@ pub async fn token(
     }
 }
 
-#[derive(Deserialize)]
-#[serde(tag = "grant_type", rename_all = "snake_case")]
-pub enum OAuthTokenRequest {
-    AuthorizationCode {
-        code: AuthCode,
-        redirect_uri: Url,
-        client_id: ClientId,
-        client_secret: Option<String>,
-    },
-    Password {
-        username: String,
-        password: String,
-        client_id: ClientId,
-        client_secret: Option<String>,
-    },
-    ClientCredentials {
-        client_id: ClientId,
-        client_secret: Option<String>,
-    },
-    RefreshToken {
-        refresh_token: String,
-        client_id: ClientId,
-        client_secret: Option<String>,
-    },
-}
-
-impl OAuthTokenRequest {
-    fn client_id(&self) -> &ClientId {
-        match self {
-            OAuthTokenRequest::AuthorizationCode { client_id, .. } => client_id,
-            OAuthTokenRequest::Password { client_id, .. } => client_id,
-            OAuthTokenRequest::ClientCredentials { client_id, .. } => client_id,
-            OAuthTokenRequest::RefreshToken { client_id, .. } => client_id,
-        }
-    }
-    fn client_secret(&self) -> Option<&str> {
-        match self {
-            OAuthTokenRequest::AuthorizationCode { client_secret, .. } => client_secret.as_deref(),
-            OAuthTokenRequest::Password { client_secret, .. } => client_secret.as_deref(),
-            OAuthTokenRequest::ClientCredentials { client_secret, .. } => client_secret.as_deref(),
-            OAuthTokenRequest::RefreshToken { client_secret, .. } => client_secret.as_deref(),
-        }
-    }
-}
-
 #[async_trait]
 impl<S> FromRequestParts<S> for AuthenticatedClient
 where
@@ -189,37 +145,6 @@ where
                     .map_err(TokenError::from)
             }
             _ => Err(TokenError::ClientUnAuthenticated),
-        }
-    }
-}
-
-pub enum TokenError {
-    ClientUnAuthenticated,
-    AuthFlowNotFound,
-    FlowNotSupported,
-    JsonWebTokenError(JsonWebTokenError),
-}
-
-impl From<ClientValidationError> for TokenError {
-    fn from(_err: ClientValidationError) -> Self {
-        // TODO log original error
-        TokenError::ClientUnAuthenticated
-    }
-}
-
-impl IntoResponse for TokenError {
-    fn into_response(self) -> Response {
-        match self {
-            TokenError::ClientUnAuthenticated => {
-                (StatusCode::UNAUTHORIZED, "Client unauthenticated").into_response()
-            }
-            TokenError::AuthFlowNotFound => {
-                (StatusCode::UNAUTHORIZED, "AuthFlow not found").into_response()
-            }
-            TokenError::FlowNotSupported => {
-                (StatusCode::BAD_REQUEST, "Flow not supported").into_response()
-            }
-            TokenError::JsonWebTokenError(_) => (StatusCode::INTERNAL_SERVER_ERROR).into_response(),
         }
     }
 }
