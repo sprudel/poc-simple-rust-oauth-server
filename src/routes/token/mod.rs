@@ -15,7 +15,7 @@ use openidconnect::core::{
 };
 use openidconnect::{
     AccessToken, Audience, EmptyAdditionalClaims, EmptyExtraTokenFields, IssuerUrl, RefreshToken,
-    StandardClaims, SubjectIdentifier,
+    StandardClaims,
 };
 use std::time::Instant;
 
@@ -54,7 +54,7 @@ pub async fn token(
                     StandardClaims::new(
                         // Stable subject identifiers are recommended in place of e-mail addresses or other
                         // potentially unstable identifiers. This is the only required claim.
-                        SubjectIdentifier::new("5f83e0ca-2b8e-4e8c-ba0a-f80fe9bc3632".to_string()),
+                        auth_state.subject,
                     ),
                     // OpenID Connect Providers may supply custom claims by providing a struct that
                     // implements the AdditionalClaims trait. This requires manually using the

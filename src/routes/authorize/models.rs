@@ -3,7 +3,7 @@ use openidconnect::{ClientId, CsrfToken, Nonce, PkceCodeChallenge, ResponseTypes
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct AuthorizeParameters {
     pub scope: String,
     pub response_type: ResponseTypes<CoreResponseType>,

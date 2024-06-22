@@ -22,3 +22,4 @@ base64 = "0.22.1"
 subtle = "2.5.0"
 chrono = "0.4.38"
 tower-cookies = { version = "0.10.0", features = ["private"] }
+serde_urlencoded = "0.7.1"
