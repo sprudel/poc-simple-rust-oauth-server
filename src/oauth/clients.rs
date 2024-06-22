@@ -1,6 +1,5 @@
-use crate::endpoints::authorize::AuthErr;
-use crate::primitives::AuthCode;
-use crate::ClientConfig;
+use crate::oauth::primitives::AuthCode;
+use crate::routes::authorize::AuthErr;
 use async_trait::async_trait;
 use openidconnect::{ClientId, CsrfToken};
 use subtle::ConstantTimeEq;
@@ -41,6 +40,11 @@ pub trait ClientValidation {
             _ => Err(AuthErr::InternalServerError),
         }
     }
+}
+
+pub struct ClientConfig {
+    pub secret: String,
+    pub redirect_uris: Vec<Url>,
 }
 
 pub struct ValidRedirectUrl(Url);

@@ -1,25 +1,25 @@
-use crate::endpoints::authorize::{get_authorize, post_authorize};
-use crate::endpoints::token::token;
-use crate::endpoints::{jwks, wellknown_endpoint};
-use crate::primitives::AuthCode;
-use axum::extract::FromRef;
+use crate::routes::authorize::{get_authorize, post_authorize};
+use crate::routes::token::token;
+use crate::routes::{jwks, wellknown_endpoint};
 use axum::routing::{get, post};
 use axum::Router;
 use ed25519_dalek::ed25519::signature::rand_core::OsRng;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::SigningKey;
-use openidconnect::core::{CoreEdDsaPrivateSigningKey, CoreResponseType};
-use openidconnect::{ClientId, JsonWebKeyId, Nonce, PkceCodeChallenge, ResponseTypes};
+use openidconnect::core::{CoreEdDsaPrivateSigningKey};
+use openidconnect::{ClientId, JsonWebKeyId};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
-use tokio::sync::Mutex;
 use url::Url;
 
-mod endpoints;
+mod app_state;
 mod oauth;
-mod primitives;
+mod routes;
+
+use crate::app_state::AppState;
+use crate::app_state::Config;
+use crate::oauth::clients::ClientConfig;
 
 pub fn create_app() -> Router {
     let mut csprng = OsRng;
@@ -58,33 +58,4 @@ pub fn create_app() -> Router {
 // basic handler that responds with a static string
 async fn root() -> &'static str {
     "Hello, World!"
-}
-
-#[derive(Clone, FromRef)]
-struct AppState {
-    config: Arc<Config>,
-    active_auth_code_flows: Arc<ActiveAuthCodeFlows>,
-}
-
-struct Config {
-    issuer: Url,
-    json_web_key: CoreEdDsaPrivateSigningKey,
-    clients: HashMap<ClientId, ClientConfig>,
-}
-
-struct ClientConfig {
-    secret: String,
-    redirect_uris: Vec<Url>,
-}
-
-type ActiveAuthCodeFlows = Mutex<HashMap<AuthCode, AuthCodeState>>;
-
-struct AuthCodeState {
-    expiry: Instant,
-    scope: String,
-    response_type: ResponseTypes<CoreResponseType>,
-    client_id: ClientId,
-    nonce: Option<Nonce>,
-    pkce_code_challenge: Option<PkceCodeChallenge>,
-    redirect_uri: Url,
 }

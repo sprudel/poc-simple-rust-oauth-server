@@ -1,7 +1,7 @@
+use crate::app_state::AuthCodeState;
 use crate::oauth::clients::ClientValidation;
-use crate::primitives::AuthCode;
-use crate::{AppState, AuthCodeState, ClientConfig};
-use async_trait::async_trait;
+use crate::oauth::primitives::AuthCode;
+use crate::AppState;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
@@ -10,7 +10,6 @@ use openidconnect::core::{CoreResponseMode, CoreResponseType};
 use openidconnect::{ClientId, CsrfToken, Nonce, PkceCodeChallenge, ResponseTypes};
 use serde::Deserialize;
 use std::time::{Duration, Instant};
-use subtle::ConstantTimeEq;
 use url::Url;
 
 #[derive(Deserialize)]
@@ -109,12 +108,5 @@ impl IntoResponse for AuthErr {
                 (StatusCode::UNAUTHORIZED, "Invalid client").into_response()
             }
         }
-    }
-}
-
-#[async_trait]
-impl ClientValidation for AppState {
-    async fn client_config(&self, client_id: &ClientId) -> Option<&ClientConfig> {
-        self.config.clients.get(client_id)
     }
 }

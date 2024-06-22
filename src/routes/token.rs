@@ -1,6 +1,6 @@
-use crate::endpoints::authorize::AuthErr;
 use crate::oauth::clients::{AuthenticatedClient, ClientValidation};
-use crate::primitives::AuthCode;
+use crate::oauth::primitives::AuthCode;
+use crate::routes::authorize::AuthErr;
 use crate::AppState;
 use async_trait::async_trait;
 use axum::extract::{FromRef, FromRequestParts, State};
@@ -22,7 +22,6 @@ use openidconnect::{
 };
 use serde::Deserialize;
 use std::time::Instant;
-use subtle::ConstantTimeEq;
 use url::Url;
 
 #[debug_handler]
