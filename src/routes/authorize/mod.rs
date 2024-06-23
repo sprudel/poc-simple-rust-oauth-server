@@ -120,7 +120,9 @@ async fn trigger_login(
                 .clone(),
         ),
     )
-    .set_redirect_uri(RedirectUrl::new("http://localhost:3000/callback".to_string()).unwrap());
+    .set_redirect_uri(RedirectUrl::from_url(
+        app_state.config.issuer.join("/callback").unwrap(),
+    ));
 
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
@@ -187,7 +189,9 @@ pub async fn callback(
                 .clone(),
         ),
     )
-    .set_redirect_uri(RedirectUrl::new("http://localhost:3000/callback".to_string()).unwrap());
+    .set_redirect_uri(RedirectUrl::from_url(
+        app_state.config.issuer.join("/callback").unwrap(),
+    ));
 
     let token_response = client
         .exchange_code(callback.code)
