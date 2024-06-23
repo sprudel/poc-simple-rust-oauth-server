@@ -1,4 +1,4 @@
-use crate::routes::authorize::{callback, get_authorize, post_authorize};
+use crate::routes::authorize::{callback, get_authorize, logout, post_authorize};
 use crate::routes::token::token;
 use crate::routes::{jwks, wellknown_endpoint};
 use axum::routing::{get, post};
@@ -68,6 +68,7 @@ pub async fn create_app() -> Router {
         .route("/authorize", get(get_authorize).post(post_authorize))
         .route("/token", post(token))
         .route("/callback", get(callback))
+        .route("/logout", get(logout))
         .layer(CookieManagerLayer::new())
         .with_state(app_state)
 }

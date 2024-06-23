@@ -230,6 +230,12 @@ pub async fn callback(
     ))
 }
 
+pub async fn logout(auth_cookies: AuthCookies) -> impl IntoResponse {
+    // TODO validate logout redirect etc
+    auth_cookies.set_user_session(UserSession::UnAuthenticated);
+    "Successfully logged out"
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub enum UserSession {
     UnAuthenticated,
