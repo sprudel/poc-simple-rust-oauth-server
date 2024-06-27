@@ -12,6 +12,7 @@ use openidconnect::reqwest::async_http_client;
 use openidconnect::{ClientId, ClientSecret, IssuerUrl, JsonWebKeyId};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 use tower_cookies::{CookieManagerLayer, Key};
 use url::Url;
 
@@ -44,6 +45,7 @@ pub async fn create_app() -> Router {
 
     let app_state = AppState {
         config: (Arc::new(Config {
+            max_auth_session_time: Duration::from_secs(60*5),
             cookie_secret: Key::generate(),
             issuer: Url::parse("http://localhost:3000").unwrap(),
             json_web_key: CoreEdDsaPrivateSigningKey::from_ed25519_pem(

@@ -7,7 +7,6 @@ use crate::AppState;
 use axum::extract::State;
 use axum::response::IntoResponse;
 use axum::{debug_handler, Json};
-use base64::Engine;
 use chrono::{Duration, Utc};
 use openidconnect::core::{
     CoreIdToken, CoreIdTokenClaims, CoreIdTokenFields, CoreJwsSigningAlgorithm, CoreTokenResponse,

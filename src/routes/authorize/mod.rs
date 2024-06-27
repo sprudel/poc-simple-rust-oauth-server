@@ -1,6 +1,7 @@
 mod errors;
 mod models;
 
+use std::ops::Add;
 use crate::app_state::{AuthCodeState, Config};
 use crate::oauth::clients::ClientValidation;
 use crate::oauth::primitives::AuthCode;
@@ -21,7 +22,7 @@ use openidconnect::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tower_cookies::{Cookie, Cookies, PrivateCookies};
 
 pub async fn get_authorize(
@@ -51,8 +52,8 @@ async fn handle_auth_request(
 
     // TODO check user is authenticated and has access to client
     let authenticated_user = match auth_cookie.user_session {
-        UserSession::Authenticated(user_id) => user_id,
-        UserSession::UnAuthenticated => {
+        UserSession::Authenticated(user_id, issued_at) if !issued_at.is_older_than(app_state.config.max_auth_session_time) => user_id,
+        _ => {
             return trigger_login(app_state, auth_cookie, params).await;
         }
     };
@@ -61,11 +62,11 @@ async fn handle_auth_request(
         scope,
         response_type,
         client_id,
-        redirect_uri,
+        redirect_uri: _,
         state,
         nonce,
         pkce_code_challenge,
-        response_mode,
+        response_mode: _,
     } = params;
 
     let auth_code = AuthCode::new_random();
@@ -97,10 +98,6 @@ async fn trigger_login(
     auth_cookie: AuthCookies,
     params: AuthorizeParameters,
 ) -> Result<Redirect, AuthErr> {
-    if matches!(&auth_cookie.user_session, UserSession::Authenticated(_)) {
-        return Err(AuthErr::InvalidFlowState);
-    }
-
     let client = CoreClient::from_provider_metadata(
         app_state
             .config
@@ -161,7 +158,7 @@ pub async fn callback(
     auth_cookie: AuthCookies,
     Query(callback): Query<Callback>,
 ) -> Result<Redirect, AuthErr> {
-    if matches!(&auth_cookie.user_session, UserSession::Authenticated(_)) {
+    if matches!(&auth_cookie.user_session, UserSession::Authenticated(_, _)) {
         return Err(AuthErr::InvalidFlowState);
     }
     let ExternalAuth(pkce_verifier, orig_state, nonce, orig_auth_param) = auth_cookie
@@ -223,7 +220,7 @@ pub async fn callback(
     }
 
     auth_cookie.set_external_auth(None);
-    auth_cookie.set_user_session(UserSession::Authenticated(claims.subject().to_owned()));
+    auth_cookie.set_user_session(UserSession::Authenticated(claims.subject().to_owned(), IssuedAt::now()));
 
     Ok(Redirect::to(
         format!(
@@ -243,11 +240,22 @@ pub async fn logout(auth_cookies: AuthCookies) -> impl IntoResponse {
 #[derive(Serialize, Deserialize, Clone)]
 pub enum UserSession {
     UnAuthenticated,
-    Authenticated(SubjectIdentifier),
+    #[serde(rename= "A")]
+    Authenticated(SubjectIdentifier, IssuedAt),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct UserId(pub String);
+pub struct IssuedAt(u64);
+
+impl IssuedAt {
+    pub fn now() -> Self {
+        IssuedAt(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs())
+    }
+
+    pub fn is_older_than(&self, duration: Duration) -> bool {
+        UNIX_EPOCH.add(Duration::from_secs(self.0)).add(duration) < SystemTime::now()
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct ExternalAuth(PkceCodeVerifier, CsrfToken, Nonce, AuthorizeParameters);
@@ -264,10 +272,6 @@ impl AuthCookies {
         let cookie = Cookie::new(AUTH_COOKIE_NAME, value);
         // TODO correct cookie parameters
         self.private_cookies().add(cookie);
-    }
-
-    pub fn get_user_session(&self) -> &UserSession {
-        &self.user_session
     }
 
     pub fn get_external_auth(&self) -> Option<ExternalAuth> {

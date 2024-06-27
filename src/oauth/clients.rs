@@ -26,11 +26,11 @@ pub trait ClientValidation {
     async fn authenticate_client(
         &self,
         client_id: &ClientId,
-        secret: &str,
+        client_secret: &str,
     ) -> Result<AuthenticatedClient, ClientValidationError> {
         match self.client_config(client_id).await {
             Some(ClientConfig { secret, .. })
-                if secret.as_bytes().ct_eq(secret.as_bytes()).into() =>
+                if secret.as_bytes().ct_eq(client_secret.as_bytes()).into() =>
             {
                 Ok(AuthenticatedClient {
                     client_id: client_id.clone(),
@@ -76,10 +76,4 @@ impl ValidRedirectUrl {
 
 pub struct AuthenticatedClient {
     pub client_id: ClientId,
-}
-
-impl AuthenticatedClient {
-    pub fn client_id(&self) -> &ClientId {
-        &self.client_id
-    }
 }

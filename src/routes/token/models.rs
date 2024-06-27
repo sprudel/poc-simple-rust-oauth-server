@@ -93,7 +93,7 @@ where
     AppState: FromRef<S>,
 {
     type Rejection = ();
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         BasicAuthHeader::from_parts(parts).await.ok_or(())
     }
 }

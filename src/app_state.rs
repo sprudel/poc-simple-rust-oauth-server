@@ -8,7 +8,7 @@ use openidconnect::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tower_cookies::Key;
 use url::Url;
@@ -20,6 +20,7 @@ pub struct AppState {
 }
 
 pub struct Config {
+    pub max_auth_session_time: Duration,
     pub cookie_secret: Key,
     pub issuer: Url,
     pub json_web_key: CoreEdDsaPrivateSigningKey,
