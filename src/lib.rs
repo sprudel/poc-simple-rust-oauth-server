@@ -24,7 +24,7 @@ use crate::services::external_identity_provider::{
     ExternalIdentityProviderConfig, ExternalIdentityProviderService,
 };
 
-pub async fn create_app() -> Router {
+pub fn create_app() -> Router {
     let mut csprng = OsRng;
     let signing_key: SigningKey = SigningKey::generate(&mut csprng);
 

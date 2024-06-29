@@ -2,6 +2,8 @@ use crate::services::external_identity_provider::ExternalIdentityServiceError::F
 use openidconnect::core::{CoreClient, CoreProviderMetadata};
 use openidconnect::reqwest::async_http_client;
 use openidconnect::{Client, ClientId, ClientSecret, IssuerUrl};
+use std::fmt::{Display, Formatter};
+use tracing::info;
 
 pub struct ExternalIdentityProviderService {
     config: ExternalIdentityProviderConfig,
@@ -20,6 +22,7 @@ impl ExternalIdentityProviderService {
     }
 
     pub async fn client(&self) -> Result<CoreClient, ExternalIdentityServiceError> {
+        info!("Discovering provider {}", self.config.issuer.as_str());
         let provider_metadata =
             CoreProviderMetadata::discover_async(self.config.issuer.clone(), async_http_client)
                 .await
@@ -34,4 +37,14 @@ impl ExternalIdentityProviderService {
 
 pub enum ExternalIdentityServiceError {
     FailedToDiscoverProvider(String),
+}
+
+impl Display for ExternalIdentityServiceError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FailedToDiscoverProvider(e) => {
+                write!(f, "Failed to discover provider: {e}")
+            }
+        }
+    }
 }

@@ -24,8 +24,8 @@ impl From<ClientValidationError> for AuthErr {
 }
 
 impl From<ExternalIdentityServiceError> for AuthErr {
-    fn from(_value: ExternalIdentityServiceError) -> Self {
-        // TODO log issues
+    fn from(err: ExternalIdentityServiceError) -> Self {
+        tracing::error!("Failed to discover external identity provider: {}", err);
         AuthErr::InternalServerError
     }
 }
