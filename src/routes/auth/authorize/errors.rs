@@ -17,14 +17,14 @@ impl From<ClientValidationError> for AuthErr {
     fn from(err: ClientValidationError) -> Self {
         match err {
             ClientValidationError::InvalidClient(id) => AuthErr::InvalidClientId(id),
-            ClientValidationError::InvalidClientAuth => AuthErr::FailedClientAuth,
+            ClientValidationError::FailedClientAuth => AuthErr::FailedClientAuth,
             ClientValidationError::InvalidRedirect(url) => AuthErr::InvalidRedirectUri(url),
         }
     }
 }
 
 impl From<ExternalIdentityServiceError> for AuthErr {
-    fn from(value: ExternalIdentityServiceError) -> Self {
+    fn from(_value: ExternalIdentityServiceError) -> Self {
         // TODO log issues
         AuthErr::InternalServerError
     }

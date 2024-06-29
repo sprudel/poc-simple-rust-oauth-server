@@ -36,7 +36,7 @@ pub trait ClientValidation {
                     client_id: client_id.clone(),
                 })
             }
-            Some(_) => Err(ClientValidationError::InvalidClientAuth),
+            Some(_) => Err(ClientValidationError::FailedClientAuth),
             _ => Err(ClientValidationError::InvalidClient(client_id.clone())),
         }
     }
@@ -44,7 +44,7 @@ pub trait ClientValidation {
 
 pub enum ClientValidationError {
     InvalidClient(ClientId),
-    InvalidClientAuth,
+    FailedClientAuth,
     InvalidRedirect(Url),
 }
 

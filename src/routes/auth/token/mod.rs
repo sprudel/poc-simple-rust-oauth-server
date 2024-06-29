@@ -80,7 +80,7 @@ pub async fn token(
                 // automatically.
                 None,
             )
-            .map_err(TokenError::JsonWebTokenError)?;
+            .map_err(TokenError::JsonWebToken)?;
             let mut token_response = CoreTokenResponse::new(
                 access_token,
                 CoreTokenType::Bearer,

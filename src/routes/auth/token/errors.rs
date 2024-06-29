@@ -7,7 +7,7 @@ pub enum TokenError {
     ClientUnAuthenticated,
     AuthFlowNotFound,
     FlowNotSupported,
-    JsonWebTokenError(JsonWebTokenError),
+    JsonWebToken(JsonWebTokenError),
     BadRequest,
 }
 
@@ -30,7 +30,7 @@ impl IntoResponse for TokenError {
             TokenError::FlowNotSupported => {
                 (StatusCode::BAD_REQUEST, "Flow not supported").into_response()
             }
-            TokenError::JsonWebTokenError(_) => (StatusCode::INTERNAL_SERVER_ERROR).into_response(),
+            TokenError::JsonWebToken(_) => (StatusCode::INTERNAL_SERVER_ERROR).into_response(),
             TokenError::BadRequest => {
                 (StatusCode::BAD_REQUEST, "Invalid request body").into_response()
             }
