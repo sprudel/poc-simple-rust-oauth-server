@@ -203,7 +203,7 @@ pub async fn callback(
 
     Ok(Redirect::to(
         format!(
-            "/authorize?{}",
+            "/auth/authorize?{}",
             serde_urlencoded::to_string(orig_auth_param).unwrap()
         )
         .as_str(),
