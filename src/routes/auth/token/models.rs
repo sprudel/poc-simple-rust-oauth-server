@@ -1,7 +1,7 @@
 use crate::app_state::AppState;
 use crate::oauth::clients::{AuthenticatedClient, ClientValidation};
 use crate::oauth::primitives::AuthCode;
-use crate::routes::token::errors::TokenError;
+use crate::routes::auth::token::errors::TokenError;
 use async_trait::async_trait;
 use axum::extract::{FromRef, FromRequest, FromRequestParts, Request};
 use axum::http::header::AUTHORIZATION;

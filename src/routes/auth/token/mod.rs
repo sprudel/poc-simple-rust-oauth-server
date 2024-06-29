@@ -1,8 +1,8 @@
 mod errors;
 mod models;
 
-use crate::routes::token::errors::TokenError;
-use crate::routes::token::models::{ValidatedClient, ValidatedOauthTokenRequest};
+use crate::routes::auth::token::errors::TokenError;
+use crate::routes::auth::token::models::{ValidatedClient, ValidatedOauthTokenRequest};
 use crate::AppState;
 use axum::extract::State;
 use axum::response::IntoResponse;

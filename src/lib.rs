@@ -1,5 +1,3 @@
-use crate::routes::authorize::{callback, get_authorize, logout, post_authorize};
-use crate::routes::token::token;
 use crate::routes::{jwks, wellknown_endpoint};
 use axum::routing::{get, post};
 use axum::Router;
@@ -23,6 +21,9 @@ mod routes;
 use crate::app_state::Config;
 use crate::app_state::{AppState, ExternalIdentityProvider};
 use crate::oauth::clients::ClientConfig;
+use crate::routes::auth::authorize::{callback, get_authorize, logout, post_authorize};
+use crate::routes::auth::token::token;
+
 pub async fn create_app() -> Router {
     let mut csprng = OsRng;
     let signing_key: SigningKey = SigningKey::generate(&mut csprng);
@@ -45,7 +46,7 @@ pub async fn create_app() -> Router {
 
     let app_state = AppState {
         config: (Arc::new(Config {
-            max_auth_session_time: Duration::from_secs(60*5),
+            max_auth_session_time: Duration::from_secs(60 * 5),
             cookie_secret: Key::generate(),
             issuer: Url::parse("http://localhost:3000").unwrap(),
             json_web_key: CoreEdDsaPrivateSigningKey::from_ed25519_pem(

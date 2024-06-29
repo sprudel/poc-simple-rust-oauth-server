@@ -13,8 +13,7 @@ use openidconnect::{
 use std::sync::Arc;
 use url::Url;
 
-pub mod authorize;
-pub mod token;
+pub mod auth;
 
 pub async fn wellknown_endpoint(config: State<Arc<Config>>) -> Json<CoreProviderMetadata> {
     Json(generate_provider_metadata(&config.issuer))

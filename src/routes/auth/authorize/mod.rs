@@ -1,12 +1,11 @@
 mod errors;
 mod models;
 
-use std::ops::Add;
 use crate::app_state::{AuthCodeState, Config};
 use crate::oauth::clients::ClientValidation;
 use crate::oauth::primitives::AuthCode;
-use crate::routes::authorize::errors::AuthErr;
-use crate::routes::authorize::models::AuthorizeParameters;
+use crate::routes::auth::authorize::errors::AuthErr;
+use crate::routes::auth::authorize::models::AuthorizeParameters;
 use crate::AppState;
 use async_trait::async_trait;
 use axum::extract::{FromRef, FromRequestParts, Query, State};
@@ -21,6 +20,7 @@ use openidconnect::{
     PkceCodeVerifier, RedirectUrl, Scope, SubjectIdentifier, TokenResponse,
 };
 use serde::{Deserialize, Serialize};
+use std::ops::Add;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tower_cookies::{Cookie, Cookies, PrivateCookies};
@@ -52,7 +52,11 @@ async fn handle_auth_request(
 
     // TODO check user is authenticated and has access to client
     let authenticated_user = match auth_cookie.user_session {
-        UserSession::Authenticated(user_id, issued_at) if !issued_at.is_older_than(app_state.config.max_auth_session_time) => user_id,
+        UserSession::Authenticated(user_id, issued_at)
+            if !issued_at.is_older_than(app_state.config.max_auth_session_time) =>
+        {
+            user_id
+        }
         _ => {
             return trigger_login(app_state, auth_cookie, params).await;
         }
@@ -220,7 +224,10 @@ pub async fn callback(
     }
 
     auth_cookie.set_external_auth(None);
-    auth_cookie.set_user_session(UserSession::Authenticated(claims.subject().to_owned(), IssuedAt::now()));
+    auth_cookie.set_user_session(UserSession::Authenticated(
+        claims.subject().to_owned(),
+        IssuedAt::now(),
+    ));
 
     Ok(Redirect::to(
         format!(
@@ -240,7 +247,7 @@ pub async fn logout(auth_cookies: AuthCookies) -> impl IntoResponse {
 #[derive(Serialize, Deserialize, Clone)]
 pub enum UserSession {
     UnAuthenticated,
-    #[serde(rename= "A")]
+    #[serde(rename = "A")]
     Authenticated(SubjectIdentifier, IssuedAt),
 }
 
@@ -249,7 +256,12 @@ pub struct IssuedAt(u64);
 
 impl IssuedAt {
     pub fn now() -> Self {
-        IssuedAt(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs())
+        IssuedAt(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        )
     }
 
     pub fn is_older_than(&self, duration: Duration) -> bool {
