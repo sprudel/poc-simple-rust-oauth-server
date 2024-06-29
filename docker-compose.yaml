@@ -1,0 +1,31 @@
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    command: start-dev
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    ports:
+      - 8080:8080
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'exec 3<>/dev/tcp/localhost/8080; echo -e "GET /health/ready HTTP/1.1\nhost: localhost:8080\n" >&3; timeout --preserve-status 1 cat <&3 | grep -m 1 status | grep -m 1 UP; ERROR=$?; exec 3<&-; exec 3>&-; exit $ERROR'
+        ]
+      interval: 5s
+      retries: 20
+      start_period: 10s
+      timeout: 10s
+  terraform-config:
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    image: ghcr.io/opentofu/opentofu:latest
+    working_dir: /srv/workdir
+    volumes:
+      - type: bind
+        source: ./test-env
+        target: /srv/workdir
+    entrypoint: ""
+    command: sh -c "tofu init --upgrade && tofu apply --auto-approve"
