@@ -122,7 +122,7 @@ async fn trigger_login(
         ),
     )
     .set_redirect_uri(RedirectUrl::from_url(
-        app_state.config.issuer.join("/callback").unwrap(),
+        app_state.config.issuer.join("/auth/callback").unwrap(),
     ));
 
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
@@ -191,7 +191,7 @@ pub async fn callback(
         ),
     )
     .set_redirect_uri(RedirectUrl::from_url(
-        app_state.config.issuer.join("/callback").unwrap(),
+        app_state.config.issuer.join("/auth/callback").unwrap(),
     ));
 
     let token_response = client

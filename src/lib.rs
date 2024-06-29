@@ -1,5 +1,4 @@
-use crate::routes::{jwks, wellknown_endpoint};
-use axum::routing::{get, post};
+use crate::routes::main_router;
 use axum::Router;
 use ed25519_dalek::ed25519::signature::rand_core::OsRng;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
@@ -11,7 +10,7 @@ use openidconnect::{ClientId, ClientSecret, IssuerUrl, JsonWebKeyId};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tower_cookies::{CookieManagerLayer, Key};
+use tower_cookies::Key;
 use url::Url;
 
 mod app_state;
@@ -21,8 +20,6 @@ mod routes;
 use crate::app_state::Config;
 use crate::app_state::{AppState, ExternalIdentityProvider};
 use crate::oauth::clients::ClientConfig;
-use crate::routes::auth::authorize::{callback, get_authorize, logout, post_authorize};
-use crate::routes::auth::token::token;
 
 pub async fn create_app() -> Router {
     let mut csprng = OsRng;
@@ -64,18 +61,5 @@ pub async fn create_app() -> Router {
         active_auth_code_flows: Arc::new(Default::default()),
     };
 
-    Router::new()
-        .route("/", get(root))
-        .route("/.well-known/openid-configuration", get(wellknown_endpoint))
-        .route("/jwk", get(jwks))
-        .route("/authorize", get(get_authorize).post(post_authorize))
-        .route("/token", post(token))
-        .route("/callback", get(callback))
-        .route("/logout", get(logout))
-        .layer(CookieManagerLayer::new())
-        .with_state(app_state)
-}
-// basic handler that responds with a static string
-async fn root() -> &'static str {
-    "Hello, World!"
+    main_router().with_state(app_state)
 }
