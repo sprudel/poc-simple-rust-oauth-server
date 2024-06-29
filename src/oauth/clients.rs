@@ -1,10 +1,8 @@
 use crate::oauth::primitives::AuthCode;
-use async_trait::async_trait;
 use openidconnect::{ClientId, CsrfToken};
 use subtle::ConstantTimeEq;
 use url::Url;
 
-#[async_trait]
 pub trait ClientValidation {
     async fn client_config(&self, client_id: &ClientId) -> Option<&ClientConfig>;
     async fn validate_redirect(

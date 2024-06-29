@@ -3,7 +3,6 @@ use crate::oauth::primitives::AuthCode;
 use crate::services::external_identity_provider::{
     ExternalIdentityProviderConfig, ExternalIdentityProviderService,
 };
-use async_trait::async_trait;
 use axum::extract::FromRef;
 use openidconnect::core::{CoreEdDsaPrivateSigningKey, CoreResponseType};
 use openidconnect::{ClientId, Nonce, PkceCodeChallenge, ResponseTypes, SubjectIdentifier};
@@ -34,7 +33,6 @@ pub struct Services {
     pub external_identity_provider: ExternalIdentityProviderService,
 }
 
-#[async_trait]
 impl ClientValidation for AppState {
     async fn client_config(&self, client_id: &ClientId) -> Option<&ClientConfig> {
         self.config.clients.get(client_id)
