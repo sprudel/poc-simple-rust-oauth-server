@@ -4,8 +4,7 @@ use ed25519_dalek::ed25519::signature::rand_core::OsRng;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::SigningKey;
-use openidconnect::core::{CoreEdDsaPrivateSigningKey, CoreProviderMetadata};
-use openidconnect::reqwest::async_http_client;
+use openidconnect::core::CoreEdDsaPrivateSigningKey;
 use openidconnect::{ClientId, ClientSecret, IssuerUrl, JsonWebKeyId};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -16,10 +15,14 @@ use url::Url;
 mod app_state;
 mod oauth;
 mod routes;
+mod services;
 
-use crate::app_state::Config;
-use crate::app_state::{AppState, ExternalIdentityProvider};
+use crate::app_state::AppState;
+use crate::app_state::{Config, Services};
 use crate::oauth::clients::ClientConfig;
+use crate::services::external_identity_provider::{
+    ExternalIdentityProviderConfig, ExternalIdentityProviderService,
+};
 
 pub async fn create_app() -> Router {
     let mut csprng = OsRng;
@@ -34,31 +37,33 @@ pub async fn create_app() -> Router {
         },
     );
 
-    let provider_metadata = CoreProviderMetadata::discover_async(
-        IssuerUrl::new("http://localhost:8080/realms/test".to_string()).unwrap(),
-        async_http_client,
-    )
-    .await
-    .unwrap();
+    let config = Config {
+        max_auth_session_time: Duration::from_secs(60 * 5),
+        cookie_secret: Key::generate(),
+        issuer: Url::parse("http://localhost:3000").unwrap(),
+        json_web_key: CoreEdDsaPrivateSigningKey::from_ed25519_pem(
+            signing_key.to_pkcs8_pem(LineEnding::LF).unwrap().as_str(),
+            Some(JsonWebKeyId::new("default".into())),
+        )
+        .unwrap(),
+        clients,
+        external_identity_provider: ExternalIdentityProviderConfig {
+            issuer: IssuerUrl::new("http://localhost:8080/realms/test".to_string()).unwrap(),
+            client_id: ClientId::new("test".to_string()),
+            client_secret: ClientSecret::new("jRSpi3urLgbKOFyOycgrlRWsvFEFuMSG".to_string()),
+        },
+    };
+
+    let services = Services {
+        external_identity_provider: ExternalIdentityProviderService::new(
+            config.external_identity_provider.clone(),
+        ),
+    };
 
     let app_state = AppState {
-        config: (Arc::new(Config {
-            max_auth_session_time: Duration::from_secs(60 * 5),
-            cookie_secret: Key::generate(),
-            issuer: Url::parse("http://localhost:3000").unwrap(),
-            json_web_key: CoreEdDsaPrivateSigningKey::from_ed25519_pem(
-                signing_key.to_pkcs8_pem(LineEnding::LF).unwrap().as_str(),
-                Some(JsonWebKeyId::new("default".into())),
-            )
-            .unwrap(),
-            clients,
-            external_identity_provider: ExternalIdentityProvider {
-                provider_metadata,
-                client_id: ClientId::new("test".to_string()),
-                client_secret: ClientSecret::new("jRSpi3urLgbKOFyOycgrlRWsvFEFuMSG".to_string()),
-            },
-        })),
+        config: (Arc::new(config)),
         active_auth_code_flows: Arc::new(Default::default()),
+        services: Arc::new(services),
     };
 
     main_router().with_state(app_state)

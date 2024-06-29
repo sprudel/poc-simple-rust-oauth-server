@@ -13,7 +13,7 @@ use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect};
 use axum::Form;
-use openidconnect::core::{CoreAuthenticationFlow, CoreClient};
+use openidconnect::core::CoreAuthenticationFlow;
 use openidconnect::reqwest::async_http_client;
 use openidconnect::{
     AccessTokenHash, AuthorizationCode, CsrfToken, Nonce, OAuth2TokenResponse, PkceCodeChallenge,
@@ -102,28 +102,14 @@ async fn trigger_login(
     auth_cookie: AuthCookies,
     params: AuthorizeParameters,
 ) -> Result<Redirect, AuthErr> {
-    let client = CoreClient::from_provider_metadata(
-        app_state
-            .config
-            .external_identity_provider
-            .provider_metadata
-            .clone(),
-        app_state
-            .config
-            .external_identity_provider
-            .client_id
-            .clone(),
-        Some(
-            app_state
-                .config
-                .external_identity_provider
-                .client_secret
-                .clone(),
-        ),
-    )
-    .set_redirect_uri(RedirectUrl::from_url(
-        app_state.config.issuer.join("/auth/callback").unwrap(),
-    ));
+    let client = app_state
+        .services
+        .external_identity_provider
+        .client()
+        .await?
+        .set_redirect_uri(RedirectUrl::from_url(
+            app_state.config.issuer.join("/auth/callback").unwrap(),
+        ));
 
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
@@ -171,28 +157,14 @@ pub async fn callback(
     if callback.state.secret() != orig_state.secret() {
         return Err(AuthErr::InvalidFlowState);
     }
-    let client = CoreClient::from_provider_metadata(
-        app_state
-            .config
-            .external_identity_provider
-            .provider_metadata
-            .clone(),
-        app_state
-            .config
-            .external_identity_provider
-            .client_id
-            .clone(),
-        Some(
-            app_state
-                .config
-                .external_identity_provider
-                .client_secret
-                .clone(),
-        ),
-    )
-    .set_redirect_uri(RedirectUrl::from_url(
-        app_state.config.issuer.join("/auth/callback").unwrap(),
-    ));
+    let client = app_state
+        .services
+        .external_identity_provider
+        .client()
+        .await?
+        .set_redirect_uri(RedirectUrl::from_url(
+            app_state.config.issuer.join("/auth/callback").unwrap(),
+        ));
 
     let token_response = client
         .exchange_code(callback.code)

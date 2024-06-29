@@ -1,4 +1,5 @@
 use crate::oauth::clients::ClientValidationError;
+use crate::services::external_identity_provider::ExternalIdentityServiceError;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use openidconnect::ClientId;
@@ -19,6 +20,13 @@ impl From<ClientValidationError> for AuthErr {
             ClientValidationError::InvalidClientAuth => AuthErr::FailedClientAuth,
             ClientValidationError::InvalidRedirect(url) => AuthErr::InvalidRedirectUri(url),
         }
+    }
+}
+
+impl From<ExternalIdentityServiceError> for AuthErr {
+    fn from(value: ExternalIdentityServiceError) -> Self {
+        // TODO log issues
+        AuthErr::InternalServerError
     }
 }
 

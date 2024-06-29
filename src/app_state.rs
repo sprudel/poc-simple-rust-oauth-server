@@ -1,11 +1,12 @@
 use crate::oauth::clients::{ClientConfig, ClientValidation};
 use crate::oauth::primitives::AuthCode;
+use crate::services::external_identity_provider::{
+    ExternalIdentityProviderConfig, ExternalIdentityProviderService,
+};
 use async_trait::async_trait;
 use axum::extract::FromRef;
-use openidconnect::core::{CoreEdDsaPrivateSigningKey, CoreProviderMetadata, CoreResponseType};
-use openidconnect::{
-    ClientId, ClientSecret, Nonce, PkceCodeChallenge, ResponseTypes, SubjectIdentifier,
-};
+use openidconnect::core::{CoreEdDsaPrivateSigningKey, CoreResponseType};
+use openidconnect::{ClientId, Nonce, PkceCodeChallenge, ResponseTypes, SubjectIdentifier};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -17,6 +18,7 @@ use url::Url;
 pub struct AppState {
     pub config: Arc<Config>,
     pub active_auth_code_flows: Arc<ActiveAuthCodeFlows>,
+    pub services: Arc<Services>,
 }
 
 pub struct Config {
@@ -25,7 +27,11 @@ pub struct Config {
     pub issuer: Url,
     pub json_web_key: CoreEdDsaPrivateSigningKey,
     pub clients: HashMap<ClientId, ClientConfig>,
-    pub external_identity_provider: ExternalIdentityProvider,
+    pub external_identity_provider: ExternalIdentityProviderConfig,
+}
+
+pub struct Services {
+    pub external_identity_provider: ExternalIdentityProviderService,
 }
 
 #[async_trait]
@@ -46,10 +52,4 @@ pub struct AuthCodeState {
     pub pkce_code_challenge: Option<PkceCodeChallenge>,
     pub redirect_uri: Url,
     pub subject: SubjectIdentifier,
-}
-
-pub struct ExternalIdentityProvider {
-    pub provider_metadata: CoreProviderMetadata,
-    pub client_id: ClientId,
-    pub client_secret: ClientSecret,
 }
