@@ -19,33 +19,33 @@ enum OAuthTokenRequest {
     AuthorizationCode {
         code: AuthCode,
         redirect_uri: Url,
-        client_id: ClientId,
+        client_id: Option<ClientId>,
         client_secret: Option<ClientSecret>,
     },
     Password {
         username: String,
         password: String,
-        client_id: ClientId,
+        client_id: Option<ClientId>,
         client_secret: Option<ClientSecret>,
     },
     ClientCredentials {
-        client_id: ClientId,
+        client_id: Option<ClientId>,
         client_secret: Option<ClientSecret>,
     },
     RefreshToken {
         refresh_token: String,
-        client_id: ClientId,
+        client_id: Option<ClientId>,
         client_secret: Option<ClientSecret>,
     },
 }
 
 impl OAuthTokenRequest {
-    pub fn client_id(&self) -> &ClientId {
+    pub fn client_id(&self) -> Option<&ClientId> {
         match self {
-            OAuthTokenRequest::AuthorizationCode { client_id, .. } => client_id,
-            OAuthTokenRequest::Password { client_id, .. } => client_id,
-            OAuthTokenRequest::ClientCredentials { client_id, .. } => client_id,
-            OAuthTokenRequest::RefreshToken { client_id, .. } => client_id,
+            OAuthTokenRequest::AuthorizationCode { client_id, .. } => client_id.as_ref(),
+            OAuthTokenRequest::Password { client_id, .. } => client_id.as_ref(),
+            OAuthTokenRequest::ClientCredentials { client_id, .. } => client_id.as_ref(),
+            OAuthTokenRequest::RefreshToken { client_id, .. } => client_id.as_ref(),
         }
     }
     pub fn client_secret(&self) -> Option<&ClientSecret> {
@@ -173,13 +173,14 @@ where
             .ok();
         let Form(request_body) = Form::<OAuthTokenRequest>::from_request(req, state)
             .await
-            .map_err(|_| TokenError::BadRequest)?;
+            .map_err(|e| TokenError::BadRequest(e.to_string()))?;
         let (client_id, client_secret) = match (
             basic_auth_authenticated_client.as_ref(),
+            request_body.client_id(),
             request_body.client_secret(),
         ) {
-            (Some(basic_auth), _) => (&basic_auth.client_id, &basic_auth.client_secret),
-            (None, Some(secret)) => (request_body.client_id(), secret),
+            (Some(basic_auth), _, _) => (&basic_auth.client_id, &basic_auth.client_secret),
+            (None, Some(client_id), Some(secret)) => (client_id, secret),
             _ => return Err(TokenError::ClientUnAuthenticated),
         };
 

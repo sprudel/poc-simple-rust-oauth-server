@@ -13,6 +13,13 @@ commit *FLAGS:
 start-test-environment:
    docker-compose up --wait
 
+open-keycloak-console: start-test-environment
+   @echo Use username admin, password admin
+   open http://localhost:8080
+
+test: start-test-environment
+   cargo test
+
 stop-test-environment:
    docker-compose down
 

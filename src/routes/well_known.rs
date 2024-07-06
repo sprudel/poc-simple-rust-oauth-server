@@ -43,7 +43,7 @@ fn generate_provider_metadata(baseurl: &Url) -> CoreProviderMetadata {
         // The Public subject identifier type is also supported.
         vec![CoreSubjectIdentifierType::Pairwise],
         // Support the RS256 signature algorithm.
-        vec![CoreJwsSigningAlgorithm::RsaSsaPssSha256],
+        vec![CoreJwsSigningAlgorithm::EdDsaEd25519],
         // OpenID Connect Providers may supply custom metadata by providing a struct that
         // implements the AdditionalProviderMetadata trait. This requires manually using the
         // generic ProviderMetadata struct rather than the CoreProviderMetadata type alias,

@@ -24,7 +24,7 @@ use crate::services::external_identity_provider::{
     ExternalIdentityProviderConfig, ExternalIdentityProviderService,
 };
 
-pub fn create_app() -> Router {
+pub fn create_app(issuer: Url) -> Router {
     let mut csprng = OsRng;
     let signing_key: SigningKey = SigningKey::generate(&mut csprng);
 
@@ -36,11 +36,18 @@ pub fn create_app() -> Router {
             redirect_uris: vec!["https://oidcdebugger.com/debug".parse().unwrap()],
         },
     );
+    clients.insert(
+        ClientId::new("integration-test".to_string()),
+        ClientConfig {
+            secret: "test-secret".to_string(),
+            redirect_uris: vec!["http://redirect".parse().unwrap()],
+        },
+    );
 
     let config = Config {
         max_auth_session_time: Duration::from_secs(60 * 5),
         cookie_secret: Key::generate(),
-        issuer: Url::parse("http://localhost:3000").unwrap(),
+        issuer,
         json_web_key: CoreEdDsaPrivateSigningKey::from_ed25519_pem(
             signing_key.to_pkcs8_pem(LineEnding::LF).unwrap().as_str(),
             Some(JsonWebKeyId::new("default".into())),

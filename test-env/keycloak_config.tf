@@ -8,7 +8,7 @@ resource "keycloak_openid_client" "test-client" {
   client_id     = "test"
   realm_id      = keycloak_realm.test-realm.id
   client_secret = "jRSpi3urLgbKOFyOycgrlRWsvFEFuMSG"
-  valid_redirect_uris = ["http://localhost:3000/auth/callback"]
+  valid_redirect_uris = ["*"]
   standard_flow_enabled = true
 }
 
