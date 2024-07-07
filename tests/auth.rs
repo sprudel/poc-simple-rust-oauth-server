@@ -109,6 +109,31 @@ async fn auth_code_flow() {
         .expect("id token")
         .claims(&oidc_client.id_token_verifier(), &nonce)
         .expect("id_token claim");
+
+    // second auth code flow does not show login page
+    let (url, state, _nonce) = oidc_client
+        .authorize_url(
+            CoreAuthenticationFlow::AuthorizationCode,
+            CsrfToken::new_random,
+            Nonce::new_random,
+        )
+        .url();
+
+    let second_flow_response = client.get(url).send().await.unwrap();
+    let second_redirect = second_flow_response
+        .headers()
+        .get("location")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|u| Url::parse(u).ok())
+        .expect("missing second redirect");
+
+    let query_params: HashMap<_, _> = second_redirect.query_pairs().collect();
+
+    assert_eq!(
+        query_params.get("state").expect("state"),
+        state.secret(),
+        "IDP returns correct state parameter"
+    );
 }
 
 #[tokio::test]

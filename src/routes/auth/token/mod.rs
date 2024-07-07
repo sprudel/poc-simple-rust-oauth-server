@@ -15,7 +15,7 @@ use openidconnect::core::{
 };
 use openidconnect::{
     AccessToken, Audience, EmptyAdditionalClaims, EmptyExtraTokenFields, IssuerUrl,
-    PkceCodeChallenge, PkceCodeVerifier, RefreshToken, StandardClaims,
+    PkceCodeChallenge, RefreshToken, StandardClaims,
 };
 use std::time::Instant;
 
