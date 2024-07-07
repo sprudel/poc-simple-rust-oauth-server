@@ -1,5 +1,5 @@
-pub use crate::oauth::clients::ClientConfig;
 use crate::oauth::clients::ClientValidation;
+pub use crate::oauth::clients::{ClientConfig, ClientType};
 use crate::oauth::primitives::AuthCode;
 pub use crate::services::external_identity_provider::ExternalIdentityProviderConfig;
 use crate::services::external_identity_provider::ExternalIdentityProviderService;

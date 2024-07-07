@@ -3,9 +3,7 @@ mod common;
 use crate::common::start_test_server;
 use openidconnect::core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata};
 use openidconnect::reqwest::async_http_client;
-use openidconnect::{
-    AuthorizationCode, ClientSecret, CsrfToken, IssuerUrl, Nonce, RedirectUrl, TokenResponse,
-};
+use openidconnect::{AuthorizationCode, CsrfToken, IssuerUrl, Nonce, RedirectUrl, TokenResponse};
 use reqwest::redirect::Policy;
 use reqwest::StatusCode;
 use std::collections::HashMap;
@@ -33,15 +31,12 @@ async fn auth_code_flow() {
         CoreProviderMetadata::discover_async(IssuerUrl::from_url(config.issuer), async_http_client)
             .await
             .unwrap();
-    let dummy_redirect = config.auth_code_client.1.redirect_uris[0].clone();
+    let (client_id, client_secret, dummy_redirect) = config.auth_code_client;
 
-    let oidc_client = CoreClient::from_provider_metadata(
-        provider_metadata,
-        config.auth_code_client.0,
-        Some(ClientSecret::new(config.auth_code_client.1.secret)),
-    )
-    // Set the URL the user will be redirected to after the authorization process.
-    .set_redirect_uri(RedirectUrl::from_url(dummy_redirect.clone()));
+    let oidc_client =
+        CoreClient::from_provider_metadata(provider_metadata, client_id, Some(client_secret))
+            // Set the URL the user will be redirected to after the authorization process.
+            .set_redirect_uri(RedirectUrl::from_url(dummy_redirect.clone()));
     let (url, state, nonce) = oidc_client
         .authorize_url(
             CoreAuthenticationFlow::AuthorizationCode,

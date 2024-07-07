@@ -1,5 +1,5 @@
 use crate::oauth::primitives::AuthCode;
-use openidconnect::{ClientId, CsrfToken};
+use openidconnect::{ClientId, ClientSecret, CsrfToken};
 use subtle::ConstantTimeEq;
 use url::Url;
 
@@ -27,8 +27,14 @@ pub trait ClientValidation {
         client_secret: &str,
     ) -> Result<AuthenticatedClient, ClientValidationError> {
         match self.client_config(client_id).await {
-            Some(ClientConfig { secret, .. })
-                if secret.as_bytes().ct_eq(client_secret.as_bytes()).into() =>
+            Some(ClientConfig {
+                client_type: ClientType::Confidential(secret),
+                ..
+            }) if secret
+                .secret()
+                .as_bytes()
+                .ct_eq(client_secret.as_bytes())
+                .into() =>
             {
                 Ok(AuthenticatedClient {
                     client_id: client_id.clone(),
@@ -48,8 +54,15 @@ pub enum ClientValidationError {
 
 #[derive(Debug, Clone)]
 pub struct ClientConfig {
-    pub secret: String,
+    pub client_type: ClientType,
     pub redirect_uris: Vec<Url>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ClientType {
+    Confidential(ClientSecret),
+    Public,
+    MachineToMachine(ClientSecret),
 }
 
 pub struct ValidRedirectUrl(Url);

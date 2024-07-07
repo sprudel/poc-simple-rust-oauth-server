@@ -21,7 +21,8 @@ use crate::app_state::AppState;
 use crate::app_state::Services;
 use crate::services::external_identity_provider::ExternalIdentityProviderService;
 
-pub use app_state::{ClientConfig, Config, ExternalIdentityProviderConfig};
+pub use app_state::{ClientConfig, ClientType, Config, ExternalIdentityProviderConfig};
+
 pub fn create_config(issuer: Url) -> Config {
     let mut csprng = OsRng;
     let signing_key: SigningKey = SigningKey::generate(&mut csprng);
@@ -30,14 +31,14 @@ pub fn create_config(issuer: Url) -> Config {
     clients.insert(
         ClientId::new("demo".to_string()),
         ClientConfig {
-            secret: "test".into(),
+            client_type: ClientType::Confidential(ClientSecret::new("test".into())),
             redirect_uris: vec!["https://oidcdebugger.com/debug".parse().unwrap()],
         },
     );
     clients.insert(
         ClientId::new("integration-test".to_string()),
         ClientConfig {
-            secret: "test-secret".to_string(),
+            client_type: ClientType::Confidential(ClientSecret::new("test-secret".into())),
             redirect_uris: vec!["http://redirect".parse().unwrap()],
         },
     );
