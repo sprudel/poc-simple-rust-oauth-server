@@ -8,16 +8,27 @@ use simple_oauth_server::{
     create_app, ClientConfig, ClientType, Config, ExternalIdentityProviderConfig,
 };
 use std::collections::HashMap;
+use std::sync::OnceLock;
 use std::time::Duration;
 use tower_cookies::Key;
+use tower_http::trace::TraceLayer;
 use url::Url;
 
+static LOG_INITIALIZED: OnceLock<()> = OnceLock::new();
+
 pub async fn start_test_server() -> TestConfig {
+    LOG_INITIALIZED.get_or_init(|| {
+        tracing_subscriber::fmt()
+            .with_env_filter("simple_oauth_server=debug,tower=debug")
+            .init()
+    });
+    let trace_layer = TraceLayer::new_for_http();
+
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
 
     let (config, test_config) = test_config(port);
-    let app = create_app(config);
+    let app = create_app(config).layer(trace_layer);
     tokio::spawn(async { axum::serve(listener, app).await.unwrap() });
 
     test_config
@@ -34,6 +45,10 @@ pub fn test_config(port: u16) -> (Config, TestConfig) {
             ClientSecret::new("test-secret".into()),
             "http://redirect".parse().unwrap(),
         ),
+        public_auth_code_client: (
+            ClientId::new("integration-test-public".to_string()),
+            "http://redirect".parse().unwrap(),
+        ),
     };
 
     let mut csprng = OsRng;
@@ -41,10 +56,17 @@ pub fn test_config(port: u16) -> (Config, TestConfig) {
 
     let mut clients = HashMap::new();
     clients.insert(
-        ClientId::new("integration-test".to_string()),
+        test_config.auth_code_client.0.clone(),
         ClientConfig {
-            client_type: ClientType::Confidential(ClientSecret::new("test-secret".to_string())),
-            redirect_uris: vec!["http://redirect".parse().unwrap()],
+            client_type: ClientType::Confidential(test_config.auth_code_client.1.clone()),
+            redirect_uris: vec![test_config.auth_code_client.2.clone()],
+        },
+    );
+    clients.insert(
+        test_config.public_auth_code_client.0.clone(),
+        ClientConfig {
+            client_type: ClientType::Public,
+            redirect_uris: vec![test_config.public_auth_code_client.1.clone()],
         },
     );
 
@@ -70,4 +92,5 @@ pub fn test_config(port: u16) -> (Config, TestConfig) {
 pub struct TestConfig {
     pub issuer: Url,
     pub auth_code_client: (ClientId, ClientSecret, Url),
+    pub public_auth_code_client: (ClientId, Url),
 }
