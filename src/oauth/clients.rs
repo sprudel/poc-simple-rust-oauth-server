@@ -21,26 +21,36 @@ pub trait ClientValidation {
         }
     }
 
-    async fn authenticate_client(
+    async fn validate_client(
         &self,
         client_id: &ClientId,
-        client_secret: &str,
-    ) -> Result<AuthenticatedClient, ClientValidationError> {
-        match self.client_config(client_id).await {
-            Some(ClientConfig {
-                client_type: ClientType::Confidential(secret),
-                ..
-            }) if secret
+        client_secret: Option<&ClientSecret>,
+    ) -> Result<ValidatedClient, ClientValidationError> {
+        match (self.client_config(client_id).await, client_secret) {
+            (
+                Some(ClientConfig {
+                    client_type: ClientType::Confidential(secret),
+                    ..
+                }),
+                Some(client_secret),
+            ) if secret
                 .secret()
                 .as_bytes()
-                .ct_eq(client_secret.as_bytes())
+                .ct_eq(client_secret.secret().as_bytes())
                 .into() =>
             {
-                Ok(AuthenticatedClient {
-                    client_id: client_id.clone(),
-                })
+                Ok(ValidatedClient::AuthenticatedConfidentialClient(
+                    client_id.clone(),
+                ))
             }
-            Some(_) => Err(ClientValidationError::FailedClientAuth),
+            (
+                Some(ClientConfig {
+                    client_type: ClientType::Public,
+                    ..
+                }),
+                None,
+            ) => Ok(ValidatedClient::PublicClient(client_id.clone())),
+            (Some(_), _) => Err(ClientValidationError::FailedClientAuth),
             _ => Err(ClientValidationError::InvalidClient(client_id.clone())),
         }
     }
@@ -86,6 +96,7 @@ impl ValidRedirectUrl {
     }
 }
 
-pub struct AuthenticatedClient {
-    pub client_id: ClientId,
+pub enum ValidatedClient {
+    AuthenticatedConfidentialClient(ClientId),
+    PublicClient(ClientId),
 }

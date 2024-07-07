@@ -1,8 +1,9 @@
 mod errors;
 mod models;
 
+use crate::oauth::clients::ValidatedClient;
 use crate::routes::auth::token::errors::TokenError;
-use crate::routes::auth::token::models::{ValidatedClient, ValidatedOauthTokenRequest};
+use crate::routes::auth::token::models::ValidatedOauthTokenRequest;
 use crate::AppState;
 use axum::extract::State;
 use axum::response::IntoResponse;
@@ -13,8 +14,8 @@ use openidconnect::core::{
     CoreTokenType,
 };
 use openidconnect::{
-    AccessToken, Audience, EmptyAdditionalClaims, EmptyExtraTokenFields, IssuerUrl, RefreshToken,
-    StandardClaims,
+    AccessToken, Audience, EmptyAdditionalClaims, EmptyExtraTokenFields, IssuerUrl,
+    PkceCodeChallenge, PkceCodeVerifier, RefreshToken, StandardClaims,
 };
 use std::time::Instant;
 
@@ -28,22 +29,40 @@ pub async fn token(
             code,
             redirect_uri,
             client,
+            code_verifier,
         } => {
-            let ValidatedClient::AuthenticatedConfidentialClient(client_id) = client;
             let mut guard = app_state.active_auth_code_flows.lock().await;
             let auth_state = guard
                 .remove(&code)
                 .filter(|auth_state| auth_state.expiry > Instant::now())
-                .filter(|auth_state| {
-                    auth_state.client_id == client_id && auth_state.redirect_uri == redirect_uri
+                .filter(|auth_state| auth_state.redirect_uri == redirect_uri)
+                .filter(|auth_state| match client {
+                    ValidatedClient::AuthenticatedConfidentialClient(client_id) => {
+                        auth_state.client_id == client_id
+                    }
+                    ValidatedClient::PublicClient(client_id) => {
+                        auth_state.client_id == client_id
+                            && code_verifier.is_some()
+                            && auth_state.pkce_code_challenge.is_some()
+                    }
                 })
+                .filter(
+                    |auth_state| match (&auth_state.pkce_code_challenge, code_verifier) {
+                        (Some(challenge), Some(verifier)) => {
+                            &PkceCodeChallenge::from_code_verifier_sha256(&verifier) == challenge
+                        }
+                        (None, None) => true,
+                        _ => false,
+                    },
+                )
                 .ok_or(TokenError::AuthFlowNotFound)?;
+
             let key = &app_state.config.json_web_key;
             let access_token = AccessToken::new("dummy_access_token".to_string());
             let id_token = CoreIdToken::new(
                 CoreIdTokenClaims::new(
                     IssuerUrl::from_url(app_state.config.issuer.clone()),
-                    vec![Audience::new(client_id.as_str().to_string())],
+                    vec![Audience::new(auth_state.client_id.as_str().to_string())],
                     // The ID token expiration is usually much shorter than that of the access or refresh
                     // tokens issued to clients.
                     Utc::now() + Duration::seconds(300),

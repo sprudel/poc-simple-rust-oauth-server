@@ -1,5 +1,5 @@
 use crate::app_state::AppState;
-use crate::oauth::clients::{AuthenticatedClient, ClientValidation};
+use crate::oauth::clients::{ClientValidation, ValidatedClient};
 use crate::oauth::primitives::AuthCode;
 use crate::routes::auth::token::errors::TokenError;
 use async_trait::async_trait;
@@ -9,7 +9,7 @@ use axum::http::request::Parts;
 use axum::{Form, RequestExt};
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
-use openidconnect::{ClientId, ClientSecret};
+use openidconnect::{ClientId, ClientSecret, PkceCodeVerifier};
 use serde::Deserialize;
 use url::Url;
 
@@ -21,6 +21,7 @@ enum OAuthTokenRequest {
         redirect_uri: Url,
         client_id: Option<ClientId>,
         client_secret: Option<ClientSecret>,
+        code_verifier: Option<PkceCodeVerifier>,
     },
     ClientCredentials {
         client_id: Option<ClientId>,
@@ -95,6 +96,7 @@ pub enum ValidatedOauthTokenRequest {
         code: AuthCode,
         redirect_uri: Url,
         client: ValidatedClient,
+        code_verifier: Option<PkceCodeVerifier>,
     },
     Password {
         username: String,
@@ -114,11 +116,15 @@ impl ValidatedOauthTokenRequest {
     fn from_request_and_validated_client(req: OAuthTokenRequest, client: ValidatedClient) -> Self {
         match req {
             OAuthTokenRequest::AuthorizationCode {
-                code, redirect_uri, ..
+                code,
+                redirect_uri,
+                code_verifier,
+                ..
             } => ValidatedOauthTokenRequest::AuthorizationCode {
                 code,
                 redirect_uri,
                 client,
+                code_verifier,
             },
             OAuthTokenRequest::ClientCredentials { .. } => {
                 ValidatedOauthTokenRequest::ClientCredentials { client }
@@ -130,16 +136,6 @@ impl ValidatedOauthTokenRequest {
                 }
             }
         }
-    }
-}
-
-pub enum ValidatedClient {
-    AuthenticatedConfidentialClient(ClientId),
-}
-
-impl From<AuthenticatedClient> for ValidatedClient {
-    fn from(value: AuthenticatedClient) -> Self {
-        ValidatedClient::AuthenticatedConfidentialClient(value.client_id)
     }
 }
 
@@ -164,16 +160,13 @@ where
             request_body.client_id(),
             request_body.client_secret(),
         ) {
-            (Some(basic_auth), _, _) => (&basic_auth.client_id, &basic_auth.client_secret),
-            (None, Some(client_id), Some(secret)) => (client_id, secret),
+            (Some(basic_auth), _, _) => (&basic_auth.client_id, Some(&basic_auth.client_secret)),
+            (None, Some(client_id), secret) => (client_id, secret),
             _ => return Err(TokenError::ClientUnAuthenticated),
         };
 
         let app_state = AppState::from_ref(state);
-        let validated_client = app_state
-            .authenticate_client(client_id, client_secret.secret().as_str())
-            .await?
-            .into();
+        let validated_client = app_state.validate_client(client_id, client_secret).await?;
 
         Ok(
             ValidatedOauthTokenRequest::from_request_and_validated_client(
