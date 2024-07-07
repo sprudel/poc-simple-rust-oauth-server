@@ -1,39 +1,35 @@
-use crate::routes::main_router;
-use axum::Router;
 use ed25519_dalek::ed25519::signature::rand_core::OsRng;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::SigningKey;
 use openidconnect::core::CoreEdDsaPrivateSigningKey;
 use openidconnect::{ClientId, ClientSecret, IssuerUrl, JsonWebKeyId};
+use simple_oauth_server::{create_app, ClientConfig, Config, ExternalIdentityProviderConfig};
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Duration;
 use tower_cookies::Key;
 use url::Url;
 
-mod app_state;
-mod oauth;
-mod routes;
-mod services;
+pub async fn start_test_server() -> Url {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
 
-use crate::app_state::AppState;
-use crate::app_state::Services;
-use crate::services::external_identity_provider::ExternalIdentityProviderService;
+    let config = test_config(port);
+    let issuer = config.issuer.clone();
 
-pub use app_state::{ClientConfig, Config, ExternalIdentityProviderConfig};
-pub fn create_config(issuer: Url) -> Config {
+    let app = create_app(config);
+    tokio::spawn(async { axum::serve(listener, app).await.unwrap() });
+    issuer
+}
+
+pub fn test_config(port: u16) -> Config {
+    let mut issuer_url = Url::parse("http://localhost").unwrap();
+    issuer_url.set_port(Some(port)).unwrap();
+
     let mut csprng = OsRng;
     let signing_key: SigningKey = SigningKey::generate(&mut csprng);
 
     let mut clients = HashMap::new();
-    clients.insert(
-        ClientId::new("demo".to_string()),
-        ClientConfig {
-            secret: "test".into(),
-            redirect_uris: vec!["https://oidcdebugger.com/debug".parse().unwrap()],
-        },
-    );
     clients.insert(
         ClientId::new("integration-test".to_string()),
         ClientConfig {
@@ -45,7 +41,7 @@ pub fn create_config(issuer: Url) -> Config {
     Config {
         max_auth_session_time: Duration::from_secs(60 * 5),
         cookie_secret: Key::generate(),
-        issuer,
+        issuer: issuer_url,
         json_web_key: CoreEdDsaPrivateSigningKey::from_ed25519_pem(
             signing_key.to_pkcs8_pem(LineEnding::LF).unwrap().as_str(),
             Some(JsonWebKeyId::new("default".into())),
@@ -58,20 +54,4 @@ pub fn create_config(issuer: Url) -> Config {
             client_secret: ClientSecret::new("jRSpi3urLgbKOFyOycgrlRWsvFEFuMSG".to_string()),
         },
     }
-}
-
-pub fn create_app(config: Config) -> Router {
-    let services = Services {
-        external_identity_provider: ExternalIdentityProviderService::new(
-            config.external_identity_provider.clone(),
-        ),
-    };
-
-    let app_state = AppState {
-        config: (Arc::new(config)),
-        active_auth_code_flows: Arc::new(Default::default()),
-        services: Arc::new(services),
-    };
-
-    main_router().with_state(app_state)
 }

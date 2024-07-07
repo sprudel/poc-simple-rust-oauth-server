@@ -1,4 +1,4 @@
-use simple_oauth_server::create_app;
+use simple_oauth_server::{create_app, create_config};
 use tower_http::trace::TraceLayer;
 use url::Url;
 
@@ -13,7 +13,8 @@ async fn main() {
         .await
         .unwrap();
     // build our application with a route
-    let app = create_app(Url::parse("http://localhost:3000").unwrap()).layer(trace_layer);
+    let app =
+        create_app(create_config(Url::parse("http://localhost:3000").unwrap())).layer(trace_layer);
     tracing::info!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
 }

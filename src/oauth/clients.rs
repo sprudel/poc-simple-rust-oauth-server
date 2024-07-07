@@ -46,6 +46,7 @@ pub enum ClientValidationError {
     InvalidRedirect(Url),
 }
 
+#[derive(Debug, Clone)]
 pub struct ClientConfig {
     pub secret: String,
     pub redirect_uris: Vec<Url>,

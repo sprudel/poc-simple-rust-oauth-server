@@ -1,3 +1,6 @@
+mod common;
+
+use crate::common::start_test_server;
 use openidconnect::core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata};
 use openidconnect::reqwest::async_http_client;
 use openidconnect::{
@@ -6,20 +9,8 @@ use openidconnect::{
 };
 use reqwest::redirect::Policy;
 use reqwest::StatusCode;
-use simple_oauth_server::create_app;
 use std::collections::HashMap;
 use url::Url;
-
-async fn start_test_server() -> Url {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let port = listener.local_addr().unwrap().port();
-    let mut issuer_url = Url::parse("http://localhost").unwrap();
-    issuer_url.set_port(Some(port)).unwrap();
-
-    let app = create_app(issuer_url.clone());
-    tokio::spawn(async { axum::serve(listener, app).await.unwrap() });
-    issuer_url
-}
 
 #[tokio::test]
 async fn provider_discovery() {
