@@ -4,8 +4,7 @@ use crate::common::start_test_server;
 use openidconnect::core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata};
 use openidconnect::reqwest::async_http_client;
 use openidconnect::{
-    AuthorizationCode, ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce, RedirectUrl,
-    TokenResponse,
+    AuthorizationCode, ClientSecret, CsrfToken, IssuerUrl, Nonce, RedirectUrl, TokenResponse,
 };
 use reqwest::redirect::Policy;
 use reqwest::StatusCode;
@@ -14,9 +13,10 @@ use url::Url;
 
 #[tokio::test]
 async fn provider_discovery() {
-    let url = start_test_server().await;
+    let config = start_test_server().await;
     let provider_metadata =
-        CoreProviderMetadata::discover_async(IssuerUrl::from_url(url), async_http_client).await;
+        CoreProviderMetadata::discover_async(IssuerUrl::from_url(config.issuer), async_http_client)
+            .await;
 
     assert!(
         provider_metadata.is_ok(),
@@ -28,20 +28,20 @@ async fn provider_discovery() {
 
 #[tokio::test]
 async fn auth_code_flow() {
-    let url = start_test_server().await;
+    let config = start_test_server().await;
     let provider_metadata =
-        CoreProviderMetadata::discover_async(IssuerUrl::from_url(url), async_http_client)
+        CoreProviderMetadata::discover_async(IssuerUrl::from_url(config.issuer), async_http_client)
             .await
             .unwrap();
-    let dummy_redirect = "http://redirect";
+    let dummy_redirect = config.auth_code_client.1.redirect_uris[0].clone();
 
     let oidc_client = CoreClient::from_provider_metadata(
         provider_metadata,
-        ClientId::new("integration-test".to_string()),
-        Some(ClientSecret::new("test-secret".to_string())),
+        config.auth_code_client.0,
+        Some(ClientSecret::new(config.auth_code_client.1.secret)),
     )
     // Set the URL the user will be redirected to after the authorization process.
-    .set_redirect_uri(RedirectUrl::new(dummy_redirect.to_string()).unwrap());
+    .set_redirect_uri(RedirectUrl::from_url(dummy_redirect.clone()));
     let (url, state, nonce) = oidc_client
         .authorize_url(
             CoreAuthenticationFlow::AuthorizationCode,
@@ -53,7 +53,7 @@ async fn auth_code_flow() {
     let client = reqwest::Client::builder()
         .cookie_store(true)
         .redirect(Policy::custom(move |attempt| {
-            if attempt.url().as_str().starts_with(dummy_redirect) {
+            if attempt.url().as_str().starts_with(dummy_redirect.as_str()) {
                 attempt.stop()
             } else {
                 attempt.follow()

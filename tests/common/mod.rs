@@ -10,16 +10,16 @@ use std::time::Duration;
 use tower_cookies::Key;
 use url::Url;
 
-pub async fn start_test_server() -> Url {
+pub async fn start_test_server() -> TestConfig {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
 
     let config = test_config(port);
-    let issuer = config.issuer.clone();
-
+    let test_config = TestConfig::from_config(&config);
     let app = create_app(config);
     tokio::spawn(async { axum::serve(listener, app).await.unwrap() });
-    issuer
+
+    test_config
 }
 
 pub fn test_config(port: u16) -> Config {
@@ -53,5 +53,24 @@ pub fn test_config(port: u16) -> Config {
             client_id: ClientId::new("test".to_string()),
             client_secret: ClientSecret::new("jRSpi3urLgbKOFyOycgrlRWsvFEFuMSG".to_string()),
         },
+    }
+}
+
+pub struct TestConfig {
+    pub issuer: Url,
+    pub auth_code_client: (ClientId, ClientConfig),
+}
+
+impl TestConfig {
+    fn from_config(config: &Config) -> Self {
+        TestConfig {
+            issuer: config.issuer.clone(),
+            auth_code_client: config
+                .clients
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .next()
+                .unwrap(),
+        }
     }
 }
