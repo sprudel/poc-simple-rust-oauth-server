@@ -22,12 +22,6 @@ enum OAuthTokenRequest {
         client_id: Option<ClientId>,
         client_secret: Option<ClientSecret>,
     },
-    Password {
-        username: String,
-        password: String,
-        client_id: Option<ClientId>,
-        client_secret: Option<ClientSecret>,
-    },
     ClientCredentials {
         client_id: Option<ClientId>,
         client_secret: Option<ClientSecret>,
@@ -43,7 +37,6 @@ impl OAuthTokenRequest {
     pub fn client_id(&self) -> Option<&ClientId> {
         match self {
             OAuthTokenRequest::AuthorizationCode { client_id, .. } => client_id.as_ref(),
-            OAuthTokenRequest::Password { client_id, .. } => client_id.as_ref(),
             OAuthTokenRequest::ClientCredentials { client_id, .. } => client_id.as_ref(),
             OAuthTokenRequest::RefreshToken { client_id, .. } => client_id.as_ref(),
         }
@@ -51,7 +44,6 @@ impl OAuthTokenRequest {
     pub fn client_secret(&self) -> Option<&ClientSecret> {
         match self {
             OAuthTokenRequest::AuthorizationCode { client_secret, .. } => client_secret.as_ref(),
-            OAuthTokenRequest::Password { client_secret, .. } => client_secret.as_ref(),
             OAuthTokenRequest::ClientCredentials { client_secret, .. } => client_secret.as_ref(),
             OAuthTokenRequest::RefreshToken { client_secret, .. } => client_secret.as_ref(),
         }
@@ -126,13 +118,6 @@ impl ValidatedOauthTokenRequest {
             } => ValidatedOauthTokenRequest::AuthorizationCode {
                 code,
                 redirect_uri,
-                client,
-            },
-            OAuthTokenRequest::Password {
-                username, password, ..
-            } => ValidatedOauthTokenRequest::Password {
-                username,
-                password,
                 client,
             },
             OAuthTokenRequest::ClientCredentials { .. } => {
