@@ -9,7 +9,7 @@ impl UsersRepository {
         UsersRepository { pool }
     }
 
-    pub async fn create(&self, user: User) {
+    pub async fn create(&self, user: User) -> User {
         sqlx::query!(
             r#"
             INSERT INTO users( id, external_id, email, email_verified )
@@ -24,16 +24,21 @@ impl UsersRepository {
         .fetch_one(&self.pool)
         .await
         .unwrap();
+
+        user
     }
 
-    pub async fn get_user_by_external_id(&self, external_id: &str) -> Option<User>{
+    pub async fn get_user_by_external_id(&self, external_id: &str) -> Option<User> {
         let user = sqlx::query_as!(
             User,
             r#"
             SELECT * FROM users WHERE external_id = $1
             "#,
             external_id
-        ).fetch_optional(&self.pool).await.unwrap();
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .unwrap();
 
         user
     }

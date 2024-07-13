@@ -4,6 +4,7 @@ mod models;
 use crate::app_state::{AuthCodeState, Config};
 use crate::oauth::clients::ClientValidation;
 use crate::oauth::primitives::AuthCode;
+use crate::repositories::users::User;
 use crate::routes::auth::authorize::errors::AuthErr;
 use crate::routes::auth::authorize::models::AuthorizeParameters;
 use crate::AppState;
@@ -13,11 +14,12 @@ use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect};
 use axum::Form;
-use openidconnect::core::CoreAuthenticationFlow;
+use openidconnect::core::{CoreAuthenticationFlow, CoreGenderClaim};
 use openidconnect::reqwest::async_http_client;
 use openidconnect::{
-    AccessTokenHash, AuthorizationCode, CsrfToken, Nonce, OAuth2TokenResponse, PkceCodeChallenge,
-    PkceCodeVerifier, RedirectUrl, Scope, SubjectIdentifier, TokenResponse,
+    AccessTokenHash, AuthorizationCode, CsrfToken, EmptyAdditionalClaims, IdTokenClaims, Nonce,
+    OAuth2TokenResponse, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope,
+    SubjectIdentifier, TokenResponse,
 };
 use serde::{Deserialize, Serialize};
 use std::ops::Add;
@@ -195,11 +197,12 @@ pub async fn callback(
         }
     }
 
+    let user = get_or_signup_user(&app_state, claims).await;
+
+    let subject = SubjectIdentifier::new(user.id.to_string());
+
     auth_cookie.set_external_auth(None);
-    auth_cookie.set_user_session(UserSession::Authenticated(
-        claims.subject().to_owned(),
-        IssuedAt::now(),
-    ));
+    auth_cookie.set_user_session(UserSession::Authenticated(subject, IssuedAt::now()));
 
     Ok(Redirect::to(
         format!(
@@ -208,6 +211,35 @@ pub async fn callback(
         )
         .as_str(),
     ))
+}
+
+async fn get_or_signup_user(
+    app_state: &AppState,
+    claims: &IdTokenClaims<EmptyAdditionalClaims, CoreGenderClaim>,
+) -> User {
+    match app_state
+        .repositories
+        .users
+        .get_user_by_external_id(claims.subject())
+        .await
+    {
+        None => {
+            app_state
+                .repositories
+                .users
+                .create(User {
+                    id: std::time::SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs() as i64,
+                    external_id: Some(claims.subject().to_string()),
+                    email: claims.email().unwrap().to_string(),
+                    email_verified: claims.email_verified().unwrap(),
+                })
+                .await
+        }
+        Some(u) => u,
+    }
 }
 
 pub async fn logout(auth_cookies: AuthCookies) -> impl IntoResponse {

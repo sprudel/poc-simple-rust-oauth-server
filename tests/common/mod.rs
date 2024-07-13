@@ -1,3 +1,4 @@
+use dotenv::dotenv;
 use ed25519_dalek::ed25519::signature::rand_core::OsRng;
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 use ed25519_dalek::pkcs8::EncodePrivateKey;
@@ -7,6 +8,7 @@ use openidconnect::{ClientId, ClientSecret, IssuerUrl, JsonWebKeyId};
 use simple_oauth_server::{
     create_app, ClientConfig, ClientType, Config, ExternalIdentityProviderConfig,
 };
+use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -18,6 +20,7 @@ static LOG_INITIALIZED: OnceLock<()> = OnceLock::new();
 
 pub async fn start_test_server() -> TestConfig {
     LOG_INITIALIZED.get_or_init(|| {
+        dotenv().ok();
         tracing_subscriber::fmt()
             .with_env_filter("simple_oauth_server=debug,tower=debug")
             .init()
@@ -28,7 +31,14 @@ pub async fn start_test_server() -> TestConfig {
     let port = listener.local_addr().unwrap().port();
 
     let (config, test_config) = test_config(port);
-    let app = create_app(config).layer(trace_layer);
+
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&std::env::var("DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+
+    let app = create_app(config, pool).layer(trace_layer);
     tokio::spawn(async { axum::serve(listener, app).await.unwrap() });
 
     test_config

@@ -1,10 +1,10 @@
 use crate::repositories::users::UsersRepository;
 use sqlx::PgPool;
 
-mod users;
+pub mod users;
 
 pub struct Repositories {
-    users: UsersRepository,
+    pub users: UsersRepository,
 }
 
 impl Repositories {

@@ -26,8 +26,11 @@ async fn main() {
         .await
         .unwrap();
     // build our application with a route
-    let app =
-        create_app(create_config(Url::parse("http://localhost:3000").unwrap()), pool).layer(trace_layer);
+    let app = create_app(
+        create_config(Url::parse("http://localhost:3000").unwrap()),
+        pool,
+    )
+    .layer(trace_layer);
     tracing::info!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
 }
