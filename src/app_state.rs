@@ -1,6 +1,7 @@
 use crate::oauth::clients::ClientValidation;
 pub use crate::oauth::clients::{ClientConfig, ClientType};
 use crate::oauth::primitives::AuthCode;
+use crate::repositories::Repositories;
 pub use crate::services::external_identity_provider::ExternalIdentityProviderConfig;
 use crate::services::external_identity_provider::ExternalIdentityProviderService;
 use axum::extract::FromRef;
@@ -18,6 +19,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub active_auth_code_flows: Arc<ActiveAuthCodeFlows>,
     pub services: Arc<Services>,
+    pub repositories: Arc<Repositories>,
 }
 
 pub struct Config {

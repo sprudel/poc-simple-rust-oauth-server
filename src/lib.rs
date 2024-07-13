@@ -6,6 +6,7 @@ use ed25519_dalek::pkcs8::EncodePrivateKey;
 use ed25519_dalek::SigningKey;
 use openidconnect::core::CoreEdDsaPrivateSigningKey;
 use openidconnect::{ClientId, ClientSecret, IssuerUrl, JsonWebKeyId};
+use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,10 +18,13 @@ mod oauth;
 mod routes;
 mod services;
 
+mod repositories;
+
 use crate::app_state::AppState;
 use crate::app_state::Services;
 use crate::services::external_identity_provider::ExternalIdentityProviderService;
 
+use crate::repositories::Repositories;
 pub use app_state::{ClientConfig, ClientType, Config, ExternalIdentityProviderConfig};
 
 pub fn create_config(issuer: Url) -> Config {
@@ -61,7 +65,7 @@ pub fn create_config(issuer: Url) -> Config {
     }
 }
 
-pub fn create_app(config: Config) -> Router {
+pub fn create_app(config: Config, pg_pool: PgPool) -> Router {
     let services = Services {
         external_identity_provider: ExternalIdentityProviderService::new(
             config.external_identity_provider.clone(),
@@ -72,6 +76,7 @@ pub fn create_app(config: Config) -> Router {
         config: (Arc::new(config)),
         active_auth_code_flows: Arc::new(Default::default()),
         services: Arc::new(services),
+        repositories: Arc::new(Repositories::new(pg_pool)),
     };
 
     main_router().with_state(app_state)

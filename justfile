@@ -12,6 +12,8 @@ commit *FLAGS:
 
 start-test-environment:
    docker-compose up --wait
+   sqlx database create
+   sqlx migrate run
 
 open-keycloak-console: start-test-environment
    @echo Use username admin, password admin
