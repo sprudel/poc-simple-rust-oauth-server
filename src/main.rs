@@ -1,12 +1,26 @@
+use dotenv::dotenv;
+use sqlx::postgres::PgPoolOptions;
 use simple_oauth_server::{create_app, create_config};
 use tower_http::trace::TraceLayer;
 use url::Url;
 
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
+
     // initialize tracing
     tracing_subscriber::fmt::init();
     let trace_layer = TraceLayer::new_for_http();
+
+
+    tracing::info!("Running db migrations");
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&std::env::var("DATABASE_URL").unwrap()).await.unwrap();
+    sqlx::migrate!()
+        .run(&pool)
+        .await.unwrap();
+    tracing::info!("Completed db migrations");
 
     // run our app with hyper
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
