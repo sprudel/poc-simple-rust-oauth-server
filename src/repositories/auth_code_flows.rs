@@ -3,7 +3,9 @@ use chrono::Utc;
 use openidconnect::core::CoreResponseType;
 use openidconnect::{ClientId, Nonce, PkceCodeChallenge, ResponseTypes, SubjectIdentifier};
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use sqlx::postgres::PgQueryResult;
+use sqlx::{Error, PgPool};
+use std::time::Duration;
 use url::Url;
 
 pub struct AuthCodeFlowsRepository {
@@ -12,7 +14,29 @@ pub struct AuthCodeFlowsRepository {
 
 impl AuthCodeFlowsRepository {
     pub fn new(pool: PgPool) -> Self {
+        Self::spawn_auto_cleanup(pool.clone());
         AuthCodeFlowsRepository { pool }
+    }
+
+    fn spawn_auto_cleanup(pool: PgPool) {
+        tokio::spawn(async move {
+            match sqlx::query!(
+                r#"
+    DELETE FROM auth_code_flows WHERE expires_at < NOW();
+                "#
+            )
+            .execute(&pool)
+            .await
+            {
+                Ok(_) => {
+                    tracing::info!("Successfully cleaned up stale AuthCodeFlows")
+                }
+                Err(e) => {
+                    tracing::error!("Failed to clean up AuthCodeFlows {}", e)
+                }
+            }
+            tokio::time::sleep(Duration::from_secs(60 * 15)).await;
+        });
     }
 
     pub async fn insert(&self, code: &AuthCode, state: AuthCodeState) {

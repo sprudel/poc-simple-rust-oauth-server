@@ -80,7 +80,7 @@ async fn handle_auth_request(
     let auth_code = AuthCode::new_random();
     let auth_code_redirect = valid_redirect_url.auth_code_redirect(&auth_code, state);
 
-    let code_expiry = chrono::Utc::now().add(TimeDelta::minutes(5));
+    let code_expiry = chrono::Utc::now().add(TimeDelta::seconds(10));
 
     let auth_code_state = AuthCodeState {
         expires_at: code_expiry,

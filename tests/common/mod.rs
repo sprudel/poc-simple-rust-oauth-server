@@ -26,8 +26,7 @@ macro_rules! start_test_server {
         fn type_name_of<T>(_: T) -> &'static str {
             std::any::type_name::<T>()
         }
-        let name = type_name_of(f)
-            .split("::{{closure}}::f").next().unwrap();
+        let name = type_name_of(f).split("::{{closure}}::f").next().unwrap();
         $crate::common::test_server_with_isolated_database(&name)
     }};
 }
