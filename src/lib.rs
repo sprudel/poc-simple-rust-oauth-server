@@ -74,7 +74,6 @@ pub fn create_app(config: Config, pg_pool: PgPool) -> Router {
 
     let app_state = AppState {
         config: (Arc::new(config)),
-        active_auth_code_flows: Arc::new(Default::default()),
         services: Arc::new(services),
         repositories: Arc::new(Repositories::new(pg_pool)),
     };

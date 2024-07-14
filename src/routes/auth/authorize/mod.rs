@@ -1,9 +1,10 @@
 mod errors;
 mod models;
 
-use crate::app_state::{AuthCodeState, Config};
+use crate::app_state::Config;
 use crate::oauth::clients::ClientValidation;
 use crate::oauth::primitives::AuthCode;
+use crate::repositories::auth_code_flows::AuthCodeState;
 use crate::repositories::users::User;
 use crate::routes::auth::authorize::errors::AuthErr;
 use crate::routes::auth::authorize::models::AuthorizeParameters;
@@ -14,6 +15,7 @@ use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect};
 use axum::Form;
+use chrono::TimeDelta;
 use openidconnect::core::{CoreAuthenticationFlow, CoreGenderClaim};
 use openidconnect::reqwest::async_http_client;
 use openidconnect::{
@@ -24,7 +26,7 @@ use openidconnect::{
 use serde::{Deserialize, Serialize};
 use std::ops::Add;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tower_cookies::{Cookie, Cookies, PrivateCookies};
 
 pub async fn get_authorize(
@@ -78,9 +80,7 @@ async fn handle_auth_request(
     let auth_code = AuthCode::new_random();
     let auth_code_redirect = valid_redirect_url.auth_code_redirect(&auth_code, state);
 
-    let code_expiry = Instant::now()
-        .checked_add(Duration::from_secs(60))
-        .ok_or(AuthErr::InternalServerError)?;
+    let code_expiry = chrono::Utc::now().add(TimeDelta::minutes(5));
 
     let auth_code_state = AuthCodeState {
         expiry: code_expiry,
@@ -93,8 +93,11 @@ async fn handle_auth_request(
         subject: authenticated_user,
     };
 
-    let mut guard = app_state.active_auth_code_flows.lock().await;
-    guard.insert(auth_code, auth_code_state);
+    app_state
+        .repositories
+        .auth_code_flow
+        .insert(&auth_code, auth_code_state)
+        .await;
 
     Ok(Redirect::to(auth_code_redirect.as_str()))
 }

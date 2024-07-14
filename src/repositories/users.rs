@@ -12,9 +12,9 @@ impl UsersRepository {
     pub async fn create(&self, user: User) -> User {
         sqlx::query!(
             r#"
-            INSERT INTO users( id, external_id, email, email_verified )
-            VALUES ( $1, $2, $3, $4 )
-            RETURNING id
+INSERT INTO users( id, external_id, email, email_verified )
+VALUES ( $1, $2, $3, $4 )
+RETURNING id
         "#,
             user.id,
             user.external_id,
@@ -29,7 +29,7 @@ impl UsersRepository {
     }
 
     pub async fn get_user_by_external_id(&self, external_id: &str) -> Option<User> {
-        let user = sqlx::query_as!(
+        sqlx::query_as!(
             User,
             r#"
             SELECT * FROM users WHERE external_id = $1
@@ -38,9 +38,7 @@ impl UsersRepository {
         )
         .fetch_optional(&self.pool)
         .await
-        .unwrap();
-
-        user
+        .unwrap()
     }
 }
 

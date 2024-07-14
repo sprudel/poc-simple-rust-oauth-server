@@ -17,7 +17,6 @@ use openidconnect::{
     AccessToken, Audience, EmptyAdditionalClaims, EmptyExtraTokenFields, IssuerUrl,
     PkceCodeChallenge, RefreshToken, StandardClaims,
 };
-use std::time::Instant;
 
 #[debug_handler]
 pub async fn token(
@@ -31,10 +30,12 @@ pub async fn token(
             client,
             code_verifier,
         } => {
-            let mut guard = app_state.active_auth_code_flows.lock().await;
-            let auth_state = guard
-                .remove(&code)
-                .filter(|auth_state| auth_state.expiry > Instant::now())
+            let auth_state = app_state
+                .repositories
+                .auth_code_flow
+                .remove_state(&code)
+                .await
+                .filter(|auth_state| auth_state.expiry > Utc::now())
                 .filter(|auth_state| auth_state.redirect_uri == redirect_uri)
                 .filter(|auth_state| match client {
                     ValidatedClient::AuthenticatedConfidentialClient(client_id) => {
