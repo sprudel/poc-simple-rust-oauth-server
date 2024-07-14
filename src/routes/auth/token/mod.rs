@@ -35,7 +35,7 @@ pub async fn token(
                 .auth_code_flow
                 .remove_state(&code)
                 .await
-                .filter(|auth_state| auth_state.expiry > Utc::now())
+                .filter(|auth_state| auth_state.expires_at > Utc::now())
                 .filter(|auth_state| auth_state.redirect_uri == redirect_uri)
                 .filter(|auth_state| match client {
                     ValidatedClient::AuthenticatedConfidentialClient(client_id) => {

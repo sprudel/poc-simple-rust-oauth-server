@@ -19,10 +19,11 @@ impl AuthCodeFlowsRepository {
         let flow_data = serde_json::to_value(&state).unwrap();
         sqlx::query!(
             r#"
-INSERT INTO auth_code_flows ( code, flow_data )
-VALUES ( $1, $2 )
+INSERT INTO auth_code_flows ( code, expires_at, flow_data )
+VALUES ( $1, $2, $3 )
             "#,
             code.as_str(),
+            state.expires_at,
             flow_data
         )
         .execute(&self.pool)
@@ -48,7 +49,7 @@ RETURNING flow_data
 
 #[derive(Serialize, Deserialize)]
 pub struct AuthCodeState {
-    pub expiry: chrono::DateTime<Utc>,
+    pub expires_at: chrono::DateTime<Utc>,
     pub scope: String,
     pub response_type: ResponseTypes<CoreResponseType>,
     pub client_id: ClientId,

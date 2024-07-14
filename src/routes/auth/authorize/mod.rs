@@ -83,7 +83,7 @@ async fn handle_auth_request(
     let code_expiry = chrono::Utc::now().add(TimeDelta::minutes(5));
 
     let auth_code_state = AuthCodeState {
-        expiry: code_expiry,
+        expires_at: code_expiry,
         scope,
         response_type,
         client_id,
