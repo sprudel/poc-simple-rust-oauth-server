@@ -1,6 +1,5 @@
 mod common;
 
-use crate::common::start_test_server;
 use openidconnect::core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata};
 use openidconnect::reqwest::async_http_client;
 use openidconnect::{
@@ -13,7 +12,7 @@ use url::Url;
 
 #[tokio::test]
 async fn provider_discovery() {
-    let config = start_test_server().await;
+    let config = start_test_server!().await;
     let provider_metadata =
         CoreProviderMetadata::discover_async(IssuerUrl::from_url(config.issuer), async_http_client)
             .await;
@@ -28,7 +27,7 @@ async fn provider_discovery() {
 
 #[tokio::test]
 async fn auth_code_flow() {
-    let config = start_test_server().await;
+    let config = start_test_server!().await;
     let provider_metadata =
         CoreProviderMetadata::discover_async(IssuerUrl::from_url(config.issuer), async_http_client)
             .await
@@ -138,7 +137,7 @@ async fn auth_code_flow() {
 
 #[tokio::test]
 async fn auth_code_flow_with_pkce() {
-    let config = start_test_server().await;
+    let config = start_test_server!().await;
     let provider_metadata =
         CoreProviderMetadata::discover_async(IssuerUrl::from_url(config.issuer), async_http_client)
             .await

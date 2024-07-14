@@ -8,6 +8,7 @@ use openidconnect::{ClientId, ClientSecret, IssuerUrl, JsonWebKeyId};
 use simple_oauth_server::{
     create_app, ClientConfig, ClientType, Config, ExternalIdentityProviderConfig,
 };
+use sqlx::migrate::MigrateDatabase;
 use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -18,25 +19,45 @@ use url::Url;
 
 static LOG_INITIALIZED: OnceLock<()> = OnceLock::new();
 
-pub async fn start_test_server() -> TestConfig {
+#[macro_export]
+macro_rules! start_test_server {
+    () => {{
+        fn f() {}
+        fn type_name_of<T>(_: T) -> &'static str {
+            std::any::type_name::<T>()
+        }
+        let name = type_name_of(f)
+            .split("::{{closure}}::f").next().unwrap();
+        $crate::common::test_server_with_isolated_database(&name)
+    }};
+}
+
+pub async fn test_server_with_isolated_database(db_name: &str) -> TestConfig {
     LOG_INITIALIZED.get_or_init(|| {
-        dotenv().ok();
         tracing_subscriber::fmt()
             .with_env_filter("simple_oauth_server=debug,tower=debug")
             .init()
     });
+    dotenv().ok();
     let trace_layer = TraceLayer::new_for_http();
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
 
     let (config, test_config) = test_config(port);
+    let mut url: Url = std::env::var("DATABASE_URL").unwrap().parse().unwrap();
+    url.set_path(db_name);
 
+    if sqlx::Postgres::database_exists(url.as_str()).await.unwrap() {
+        sqlx::Postgres::drop_database(url.as_str()).await.unwrap()
+    }
+    sqlx::Postgres::create_database(url.as_str()).await.unwrap();
     let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&std::env::var("DATABASE_URL").unwrap())
+        .max_connections(1)
+        .connect(url.as_str())
         .await
         .unwrap();
+    sqlx::migrate!().run(&pool).await.unwrap();
 
     let app = create_app(config, pool).layer(trace_layer);
     tokio::spawn(async { axum::serve(listener, app).await.unwrap() });
